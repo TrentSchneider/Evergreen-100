@@ -7,7 +7,7 @@
   --text: #111;
   --card: #ffffff;
   --border: #dcdcdc;
-  --shadow: 0 2px 6px rgba(0,0,0,0.06);
+  --shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
 
   /* Surfaces */
   --surface: #ffffff;
@@ -37,13 +37,11 @@
   --button-bg: #e0e0e0;
 }
 
-
 /* =========================================================
-   THEME VARIABLES — DARK MODE (Option B, expanded range)
+   THEME VARIABLES — DARK MODE
    ========================================================= */
 
 body.theme-dark {
-  /* 10‑stop greyscale */
   --grey-0: #000000;
   --grey-1: #050505;
   --grey-2: #0d0d0d;
@@ -55,50 +53,43 @@ body.theme-dark {
   --grey-8: #6a6a6a;
   --grey-9: #e6e6e6;
 
-  /* Core surfaces */
   --bg: var(--grey-1);
   --text: var(--grey-9);
   --card: var(--grey-3);
   --border: var(--grey-6);
-  --shadow: 0 4px 14px rgba(0,0,0,0.7);
+  --shadow: 0 4px 14px rgba(0, 0, 0, 0.7);
 
-  /* Secondary surfaces */
   --surface: var(--grey-3);
   --surface-alt: var(--grey-4);
   --surface-strong: var(--grey-5);
 
-  /* Progress bars */
   --progress-bg: var(--grey-6);
   --progress-fill: #4caf50;
 
-  /* Mini-bars */
   --mini-bg: var(--grey-6);
   --mini-fill-neutral: var(--grey-8);
   --mini-fill-approaching: #d4a300;
   --mini-fill-complete: #4caf50;
   --mini-fill-over: #6c7bff;
 
-  /* Exercise rows */
   --row-bg-neutral: var(--grey-3);
   --row-bg-approaching: #3a2f00;
   --row-bg-complete: #0f3d0f;
   --row-bg-over: #0f1a3d;
 
-  /* Inputs + buttons */
   --input-bg: var(--grey-4);
   --input-border: var(--grey-6);
   --button-bg: var(--grey-5);
 }
 
-
 /* =========================================================
-   GLOBAL
+   GLOBAL LAYOUT & SPACING
    ========================================================= */
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, sans-serif;
   margin: 0;
-  padding: 0 0 3rem 0;
+  padding: 5rem 0 3rem 0;
   background: var(--bg);
   color: var(--text);
 }
@@ -112,86 +103,128 @@ body {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
-
 
 /* =========================================================
-   CARD BASE
+   FLOATING SUMMARY PILL — CONSTANT RADIUS VERSION
    ========================================================= */
 
-.card {
-  background: var(--card);
-  border-radius: 14px;
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow);
-  margin: 0.75rem 1rem;
-  overflow: hidden;
-}
-
-
-/* =========================================================
-   SUMMARY CARD
-   ========================================================= */
-
-.summary-bar {
-  background: var(--surface);
-  padding: 1rem;
-  display: flex;
-  align-items: center;
-  border-bottom: 1px solid var(--border);
-  cursor: pointer;
-  position: sticky;
-  top: env(safe-area-inset-top, 0);
-  z-index: 100;
-}
-
-.global-progress {
-  flex: 1;
-  height: 12px;
-  background: var(--progress-bg);
-  border-radius: 8px;
-  overflow: hidden;
-  position: relative;
-}
-
-.global-progress-fill {
-  position: absolute;
-  left: 0;
-  top: 0;
-  height: 100%;
-  width: 0%;
-  background: var(--progress-fill);
-  border-radius: 8px;
+#summary-container {
+  position: fixed;
+  top: calc(env(safe-area-inset-top) + 12px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 200;
+  pointer-events: none;
+  width: auto;
   transition: width 0.3s ease;
 }
 
-.summary-toggle {
-  margin-left: 1rem;
-  font-size: 1.2rem;
+#summary-container.expanded {
+  width: 92vw;
+  max-width: 480px;
 }
 
-.summary-expanded {
+/* Pill with constant radius */
+#summary-pill {
+  pointer-events: auto;
   background: var(--surface);
-  border-bottom: 1px solid var(--border);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  border-radius: 18px; /* constant */
+  padding: 0.75rem 1.25rem;
   overflow: hidden;
+  transition:
+    padding 0.3s ease,
+    height 0.3s ease,
+    box-shadow 0.3s ease,
+    background 0.3s ease;
+}
+
+#summary-container.expanded #summary-pill {
+  padding: 1.25rem 1.25rem 1.5rem 1.25rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+/* Pill top row */
+.pill-top {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+/* Progress bar */
+.pill-progress {
+  flex: 1;
+  height: 10px;
+  background: var(--progress-bg);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.pill-progress-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--progress-fill);
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+.pill-percent {
+  font-weight: 600;
+  font-size: 1rem;
+  color: var(--text);
+}
+
+/* Drawer inside pill */
+#summary-drawer {
   max-height: 0;
+  overflow: hidden;
   transition: max-height 0.3s ease;
 }
 
+#summary-container.expanded #summary-drawer {
+  max-height: 500px;
+}
+
+#summary-drawer-content {
+  opacity: 0;
+  transform: translateY(-6px);
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease;
+}
+
+#summary-container.expanded #summary-drawer-content {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Summary rows */
 .summary-row {
   display: flex;
   justify-content: space-between;
-  padding: 0.8rem 1rem;
   align-items: center;
-  gap: 0.75rem;
+  padding: 0.75rem 1.25rem;
+  gap: 1rem;
+  border-bottom: 1px solid var(--border);
   background: var(--surface);
+}
+
+.summary-row:last-child {
+  border-bottom: none;
 }
 
 .summary-name {
   flex: 1;
-  text-align: center;
 }
 
 .mini-bar {
@@ -200,30 +233,40 @@ body {
   background: var(--mini-bg);
   border-radius: 6px;
   overflow: hidden;
-  position: relative;
 }
 
 .mini-bar-fill {
-  position: absolute;
-  left: 0;
-  top: 0;
   height: 100%;
   width: 0%;
   border-radius: 6px;
-  transition: width 0.3s ease, background 0.3s ease;
+  transition:
+    width 0.3s ease,
+    background 0.3s ease;
 }
 
+/* =========================================================
+   CARD BASE
+   ========================================================= */
+
+.card {
+  background: var(--card);
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  margin: 1rem 1rem;
+  overflow: hidden;
+}
 
 /* =========================================================
-   TIER CARDS (NO INTERNAL PADDING)
+   TIER CARDS
    ========================================================= */
 
 .tier-card {
-  padding: 0; /* edge-to-edge rows */
+  padding: 0;
 }
 
 .tier-header {
-  padding: 0.9rem 1rem;
+  padding: 1.25rem 1.25rem;
   background: var(--surface-alt);
   font-weight: 700;
   display: flex;
@@ -233,32 +276,28 @@ body {
   color: var(--text);
 }
 
-
 /* =========================================================
    EXERCISE ROWS
    ========================================================= */
 
 .exercise-row {
-  padding: 0.8rem 1rem;
+  padding: 1.25rem 1.25rem;
   border-bottom: 1px solid var(--border);
 }
 
 .tier-card .exercise-row:last-child {
-  border-bottom: none; /* card edge becomes boundary */
+  border-bottom: none;
 }
 
 .exercise-row.neutral {
   background: var(--row-bg-neutral);
 }
-
 .exercise-row.approaching {
   background: var(--row-bg-approaching);
 }
-
 .exercise-row.complete {
   background: var(--row-bg-complete);
 }
-
 .exercise-row.over {
   background: var(--row-bg-over);
 }
@@ -271,33 +310,33 @@ body {
 }
 
 .expanded-row {
-  padding-top: 0.5rem;
+  padding-top: 1rem;
 }
 
 .controls {
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 0.4rem;
-  margin-top: 0.5rem;
+  gap: 0.75rem;
+  margin-top: 1rem;
 }
 
 input[type="text"] {
-  width: 70px;
-  font-size: 1.1rem;
-  padding: 0.3rem;
+  width: 80px;
+  font-size: 1.2rem;
+  padding: 0.4rem;
   text-align: center;
   background: var(--input-bg);
   border: 1px solid var(--input-border);
   color: var(--text);
-  border-radius: 6px;
+  border-radius: 8px;
 }
 
 .arrow-btn {
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   border: none;
-  border-radius: 6px;
+  border-radius: 8px;
   background: var(--button-bg);
   color: var(--text);
 }
@@ -307,8 +346,8 @@ input[type="text"] {
   background: #4caf50;
   color: white;
   border: none;
-  border-radius: 6px;
-  padding: 0.3rem 0.5rem;
+  border-radius: 8px;
+  padding: 0.4rem 0.6rem;
   font-size: 0.9rem;
   font-weight: 600;
 }
@@ -316,17 +355,16 @@ input[type="text"] {
 .expanded-row-footer {
   display: flex;
   justify-content: center;
-  margin-top: 0.3rem;
-  font-size: 0.9rem;
+  margin-top: 0.5rem;
+  font-size: 0.95rem;
 }
 
-
 /* =========================================================
-   SETTINGS CARD (KEEPS PADDING)
+   SETTINGS CARD
    ========================================================= */
 
 .settings-card {
-  padding: 0.75rem 1rem;
+  padding: 1.25rem 1.25rem;
 }
 
 .settings-header {
@@ -342,18 +380,17 @@ input[type="text"] {
 }
 
 .settings-body {
-  margin-top: 0.75rem;
+  margin-top: 1rem;
 }
-
 
 /* =========================================================
    THEME TOGGLE
    ========================================================= */
 
 .theme-card {
-  padding: 0.5rem;
+  padding: 1rem;
   background: var(--surface-alt);
-  border-radius: 12px;
+  border-radius: 14px;
 }
 
 .theme-toggle {
@@ -361,7 +398,7 @@ input[type="text"] {
   display: flex;
   background: var(--surface-strong);
   border-radius: 999px;
-  padding: 0.2rem;
+  padding: 0.25rem;
 }
 
 .theme-option {
@@ -369,63 +406,31 @@ input[type="text"] {
   border: none;
   background: transparent;
   color: var(--text);
-  font-size: 0.9rem;
-  padding: 0.3rem 0;
+  font-size: 1rem;
+  padding: 0.5rem 0;
   z-index: 1;
 }
 
 .theme-highlight {
   position: absolute;
-  top: 2px;
-  bottom: 2px;
-  width: calc(33.333% - 4px);
+  top: 3px;
+  bottom: 3px;
+  width: calc(33.333% - 6px);
   border-radius: 999px;
-  background: rgba(255,255,255,0.15);
-  box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+  background: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
   transition: transform 0.25s ease;
-}
-
-
-/* =========================================================
-   RESET BUTTON
-   ========================================================= */
-
-.reset-btn {
-  width: calc(100% - 2rem);
-  margin: 1.5rem 1rem 2rem 1rem;
-  padding: 1rem;
-  font-size: 1.1rem;
-  font-weight: 600;
-  border: none;
-  border-radius: 10px;
-  background: #ff6666;
-  color: white;
-}
-
-.shake {
-  animation: shake 0.4s ease;
-}
-
-@keyframes shake {
-  0% { transform: translateX(0); }
-  25% { transform: translateX(-4px); }
-  50% { transform: translateX(4px); }
-  75% { transform: translateX(-4px); }
-  100% { transform: translateX(0); }
 }
 
 /* =========================================================
    ICONS
    ========================================================= */
 
-
 .icon {
   width: 24px;
   height: 24px;
   fill: var(--text);
   flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
 }
 
 .icon-auto {
@@ -443,3 +448,108 @@ input[type="text"] {
   height: 12px;
 }
 
+/* =========================================================
+   RESET BUTTON
+   ========================================================= */
+
+.reset-btn {
+  width: calc(100% - 2rem);
+  margin: 2rem 1rem 3rem 1rem;
+  padding: 1.25rem;
+  font-size: 1.2rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 12px;
+  background: #ff6666;
+  color: white;
+  cursor: pointer;
+}
+
+.reset-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+
+.reset-overlay.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.reset-dialog {
+  background: var(--card);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  border-radius: 16px;
+  padding: 1.5rem;
+  width: 90%;
+  max-width: 360px;
+  animation: fadeIn 0.25s ease;
+}
+
+.reset-title {
+  font-size: 1.3rem;
+  font-weight: 700;
+  margin-bottom: 0.75rem;
+  color: var(--text);
+}
+
+.reset-message {
+  font-size: 1rem;
+  margin-bottom: 1.25rem;
+  color: var(--text);
+}
+
+.reset-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+}
+
+.reset-cancel,
+.reset-confirm {
+  padding: 0.6rem 1rem;
+  border-radius: 10px;
+  border: none;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.reset-cancel {
+  background: var(--surface-alt);
+  color: var(--text);
+}
+
+.reset-confirm {
+  background: #ff6666;
+  color: white;
+}
+
+.shake {
+  animation: shake 0.4s ease;
+}
+
+@keyframes shake {
+  0% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-4px);
+  }
+  50% {
+    transform: translateX(4px);
+  }
+  75% {
+    transform: translateX(-4px);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
