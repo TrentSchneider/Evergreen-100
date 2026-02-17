@@ -55,12 +55,14 @@ function initDB() {
     db = event.target.result;
     let store;
 
+    // Main progress store
     if (!db.objectStoreNames.contains(DB_STORE)) {
       store = db.createObjectStore(DB_STORE, { keyPath: "id" });
     } else {
       store = event.target.transaction.objectStore(DB_STORE);
     }
 
+    // Seed exercise values
     EXERCISES.forEach(ex => {
       store.get(ex.id).onsuccess = e => {
         if (!e.target.result) {
@@ -69,6 +71,7 @@ function initDB() {
       };
     });
 
+    // Seed settings with new fields
     store.get("settings").onsuccess = e => {
       if (!e.target.result) {
         store.add({
@@ -79,11 +82,19 @@ function initDB() {
               settingsExpanded: false,
               tierExpanded: {},
               rowExpanded: {}
-            }
+            },
+            lastLogDate: null,
+            streak: 0,
+            longestStreak: 0
           }
         });
       }
     };
+
+    // New daily_logs store
+    if (!db.objectStoreNames.contains("daily_logs")) {
+      db.createObjectStore("daily_logs", { keyPath: "date" });
+    }
   };
 
   request.onsuccess = event => {
@@ -111,7 +122,19 @@ function saveValue(id, value, callback) {
   const tx = db.transaction(DB_STORE, "readwrite");
   const store = tx.objectStore(DB_STORE);
   store.put({ id, value });
-  tx.oncomplete = () => callback && callback();
+
+  tx.oncomplete = () => {
+    // If we're editing a day that is not "today",
+    // update that day's snapshot (date stays the same).
+    const today = todayString();
+    const last = state.settings.lastLogDate;
+
+    if (last && last !== today) {
+      snapshotDay(last);
+    }
+
+    callback && callback();
+  };
 }
 
 // =========================================================
@@ -126,7 +149,10 @@ let state = {
       settingsExpanded: false,
       tierExpanded: {},
       rowExpanded: {}
-    }
+    },
+    lastLogDate: null,
+    streak: 0,
+    longestStreak: 0
   }
 };
 
@@ -144,6 +170,9 @@ function loadSettings(callback) {
         tierExpanded: val.layout?.tierExpanded ?? {},
         rowExpanded: val.layout?.rowExpanded ?? {}
       };
+      state.settings.lastLogDate = val.lastLogDate ?? null;
+      state.settings.streak = val.streak ?? 0;
+      state.settings.longestStreak = val.longestStreak ?? 0;
     }
 
     TIERS.forEach(t => {
@@ -216,6 +245,42 @@ function completionClass(ex, value) {
   if (ratio >= t.complete) return "complete";
   if (ratio >= t.approaching) return "approaching";
   return "neutral";
+}
+
+function todayString() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function computeCompletionPercent() {
+  const totalRequired = EXERCISES.reduce((sum, ex) => sum + ex.total, 0);
+  const totalDone = EXERCISES.reduce(
+    (sum, ex) => sum + (state.values[ex.id] || 0),
+    0
+  );
+  if (totalRequired === 0) return 0;
+  return Math.max(0, Math.min(1, totalDone / totalRequired)) * 100;
+}
+
+function snapshotDay(dateStr, callback) {
+  const completion = computeCompletionPercent();
+
+  const log = {
+    date: dateStr, // date is fixed at inception
+    values: { ...state.values }, // final values for that day
+    completion // can be < 100, = 0, > 100
+  };
+
+  const tx = db.transaction("daily_logs", "readwrite");
+  const store = tx.objectStore("daily_logs");
+
+  // Overwrite snapshot for THIS date only (content can change, date cannot)
+  store.put(log);
+
+  tx.oncomplete = () => callback && callback(completion);
 }
 
 // =========================================================
@@ -712,6 +777,46 @@ function renderAll() {
     state.values = values;
 
     loadSettings(() => {
+      const today = todayString();
+      const last = state.settings.lastLogDate;
+
+      // First run: no lastLogDate yet
+      if (!last) {
+        state.settings.lastLogDate = today;
+        saveSettings();
+      } else if (last !== today) {
+        // New day detected: snapshot yesterday, reset today
+        snapshotDay(last, completion => {
+          // Update streak based on yesterday's completion
+          if (completion >= 100) {
+            state.settings.streak += 1;
+            if (state.settings.streak > state.settings.longestStreak) {
+              state.settings.longestStreak = state.settings.streak;
+            }
+          } else {
+            state.settings.streak = 0;
+          }
+
+          // Reset values for new day
+          EXERCISES.forEach(ex => {
+            state.values[ex.id] = 0;
+            saveValue(ex.id, 0);
+          });
+
+          state.settings.lastLogDate = today;
+          saveSettings();
+
+          applyTheme();
+          renderTiers();
+          wireSettingsCard();
+          wireResetButton();
+          recomputeAndRenderSummary();
+        });
+
+        return; // prevent double render
+      }
+
+      // Normal same-day render
       applyTheme();
       renderTiers();
       wireSettingsCard();
