@@ -420,8 +420,8 @@ function renderHistory() {
       const div = document.createElement("div");
       div.className = "history-item";
       div.innerHTML = `
-        <span>${formatHistoryDate(log.date)}</span>
-        <span>${Math.round(log.completion)}%</span>
+        <span class="history-date">${formatHistoryDate(log.date)}</span>
+        <span class="history-percent">${Math.round(log.completion)}%</span>
       `;
       listEl.appendChild(div);
     });

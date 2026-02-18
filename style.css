@@ -5,6 +5,7 @@
 :root {
   --bg: #f7f7f7;
   --text: #111;
+  --text-secondary: #555;
   --card: #ffffff;
   --border: #dcdcdc;
   --shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
@@ -58,6 +59,7 @@ body.theme-dark {
 
   --bg: var(--grey-1);
   --text: var(--grey-9);
+  --text-secondary: var(--grey-8);
   --card: var(--grey-3);
   --border: var(--grey-6);
   --shadow: 0 4px 14px rgba(0, 0, 0, 0.7);
@@ -348,12 +350,41 @@ body.theme-dark .scroll-shadow.bottom {
 .history-item {
   display: flex;
   justify-content: space-between;
-  padding: 0.5rem 0.75rem;
+  align-items: center;
+
+  padding: 0.75rem 1rem;
+  margin: 0.25rem 0;
+
+  background: var(--surface);
+  border-radius: 12px;
+
+  border: 1px solid var(--border);
+  transition: background 0.2s ease, transform 0.15s ease;
+}
+
+/* Hover / tap micro-interaction */
+.history-item:hover {
   background: var(--surface-alt);
-  border-radius: 10px;
+  transform: translateY(-1px);
+}
+
+.history-item:active {
+  background: var(--surface-strong);
+  transform: translateY(0);
+}
+
+/* Typography */
+.history-date {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.history-percent {
   font-size: 0.95rem;
+  font-weight: 600;
   color: var(--text);
 }
+
 
 /* =========================================================
    CARD BASE
