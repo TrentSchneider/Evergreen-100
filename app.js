@@ -335,12 +335,15 @@ function attachHapticOnPointerDown(selector, hapticFn = hapticLight) {
 // Haptics
 // =========================================================
 
+// Detect whether vibration is supported at all
+const supportsHaptics = typeof navigator.vibrate === "function";
+
 function hapticLight() {
-  if (navigator.vibrate) navigator.vibrate(10);
+  if (supportsHaptics) navigator.vibrate(10);
 }
 
 function hapticDouble() {
-  if (navigator.vibrate) navigator.vibrate([40, 40, 40]);
+  if (supportsHaptics) navigator.vibrate([40, 40, 40]);
 }
 
 // =========================================================
@@ -620,6 +623,8 @@ function renderTiers() {
         </div>
       `;
 
+      wireSingleRowControls(ex);
+
       row.appendChild(compact);
       row.appendChild(expanded);
       tierBody.appendChild(row);
@@ -629,7 +634,6 @@ function renderTiers() {
     container.appendChild(tierCard);
   });
 
-  wireRowControls();
 }
 
 function toggleTier(tierId) {
@@ -734,58 +738,55 @@ function updateRowUI(ex) {
   }
 }
 
-function wireRowControls() {
-  EXERCISES.forEach(ex => {
-    const inputEl = document.getElementById(`input-${ex.id}`);
-    const incBtn = document.getElementById(`inc-${ex.id}`);
-    const decBtn = document.getElementById(`dec-${ex.id}`);
-    const saveBtn = document.getElementById(`save-${ex.id}`);
+function wireSingleRowControls(ex) {
+  const inputEl = document.getElementById(`input-${ex.id}`);
+  const incBtn = document.getElementById(`inc-${ex.id}`);
+  const decBtn = document.getElementById(`dec-${ex.id}`);
+  const saveBtn = document.getElementById(`save-${ex.id}`);
 
-    if (!inputEl || !incBtn || !decBtn || !saveBtn) return;
+  if (!inputEl || !incBtn || !decBtn || !saveBtn) return;
 
-    inputEl.value = formatValue(ex, state.values[ex.id] || 0);
+  // Prefill input
+  inputEl.value = formatValue(ex, state.values[ex.id] || 0);
 
-    const remainingEl = document.getElementById(`remaining-${ex.id}`);
-    if (remainingEl) {
-      remainingEl.textContent = remaining(ex, state.values[ex.id] || 0);
-    }
+  const remainingEl = document.getElementById(`remaining-${ex.id}`);
+  if (remainingEl) {
+    remainingEl.textContent = remaining(ex, state.values[ex.id] || 0);
+  }
 
-    let dirty = false;
+  let dirty = false;
 
-    function markDirty() {
-      dirty = true;
-      saveBtn.style.display = "inline-flex";
-    }
+  function markDirty() {
+    dirty = true;
+    saveBtn.style.display = "inline-flex";
+  }
 
-    function clearDirty() {
-      dirty = false;
-      saveBtn.style.display = "none";
-    }
+  function clearDirty() {
+    dirty = false;
+    saveBtn.style.display = "none";
+  }
 
-    incBtn.addEventListener("click", () => {
-      adjust(ex, +1);
+  incBtn.addEventListener("click", () => {
+    adjust(ex, +1);
+    clearDirty();
+  });
+
+  decBtn.addEventListener("click", () => {
+    adjust(ex, -1);
+    clearDirty();
+  });
+
+  inputEl.addEventListener("input", markDirty);
+
+  saveBtn.addEventListener("click", () => {
+    const parsed = parseValue(ex, inputEl.value);
+    state.values[ex.id] = parsed;
+    hapticDouble();
+    saveValue(ex.id, parsed, () => {
+      updateRowUI(ex);
+      recomputeAndRenderSummary();
+      renderHistory();
       clearDirty();
-    });
-
-    decBtn.addEventListener("click", () => {
-      adjust(ex, -1);
-      clearDirty();
-    });
-
-    inputEl.addEventListener("input", () => {
-      markDirty();
-    });
-
-    saveBtn.addEventListener("click", () => {
-      const parsed = parseValue(ex, inputEl.value);
-      state.values[ex.id] = parsed;
-      hapticDouble();
-      saveValue(ex.id, parsed, () => {
-        updateRowUI(ex);
-        recomputeAndRenderSummary();
-        renderHistory();
-        clearDirty();
-      });
     });
   });
 }
@@ -955,9 +956,4 @@ window.addEventListener("DOMContentLoaded", () => {
   // Attach haptics globally
   attachHapticOnPointerDown("[data-haptic]", hapticLight);
   attachHapticOnPointerDown("[data-haptic-double]", hapticDouble);
-});
-
-document.body.addEventListener("pointerdown", () => {
-  console.log("pointerdown fired");
-  navigator.vibrate(20);
 });
