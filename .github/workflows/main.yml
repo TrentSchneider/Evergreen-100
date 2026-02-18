@@ -1,0 +1,35 @@
+name: Enforce Branch Policy
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  enforce:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enforce allowed merge sources
+        run: |
+          echo "Base branch: ${{ github.base_ref }}"
+          echo "Head branch: ${{ github.head_ref }}"
+
+          # Rule 1: Only dev can merge into main
+          if [ "${{ github.base_ref }}" = "main" ] && [ "${{ github.head_ref }}" != "dev" ]; then
+            echo "ERROR: Only 'dev' can merge into 'main'."
+            exit 1
+          fi
+
+          # Rule 2: Only feature/* or fix/* can merge into dev
+          if [ "${{ github.base_ref }}" = "dev" ]; then
+            case "${{ github.head_ref }}" in
+              feature/*|fix/*)
+                echo "Allowed branch type."
+                ;;
+              *)
+                echo "ERROR: Only 'feature/*' or 'fix/*' branches may merge into 'dev'."
+                exit 1
+                ;;
+            esac
+          fi
+
+          echo "Branch policy passed."
