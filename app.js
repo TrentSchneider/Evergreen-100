@@ -585,7 +585,7 @@ function renderTiers() {
 
       const compact = document.createElement("div");
       compact.className = "compact-row";
-      compact.setAttribute("data-haptic")
+      compact.setAttribute("data-haptic", "")
       compact.innerHTML = `
         <div>${ex.name}</div>
         <div id="compact-${ex.id}">
