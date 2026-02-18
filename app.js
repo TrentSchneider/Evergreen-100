@@ -296,13 +296,17 @@ function loadHistory(callback) {
   };
 }
 
+function parseLocalDate(dateString) {
+  const [year, month, day] = dateString.split("-").map(Number);
+  return new Date(year, month - 1, day); // month is zero-indexed
+}
+
 function formatHistoryDate(dateString) {
-  const date = new Date(dateString);
+  const date = parseLocalDate(dateString);
   const today = new Date();
   const yesterday = new Date();
   yesterday.setDate(today.getDate() - 1);
 
-  // Normalize times for comparison
   const isSameDay = (a, b) =>
     a.getFullYear() === b.getFullYear() &&
     a.getMonth() === b.getMonth() &&
@@ -311,17 +315,13 @@ function formatHistoryDate(dateString) {
   if (isSameDay(date, today)) return "Today";
   if (isSameDay(date, yesterday)) return "Yesterday";
 
-  const optionsSameYear = { weekday: "short", month: "short", day: "numeric" };
-  const optionsDifferentYear = { year: "numeric", month: "short", day: "numeric" };
-
   const sameYear = date.getFullYear() === today.getFullYear();
+  const options = sameYear
+    ? { weekday: "short", month: "short", day: "numeric" }
+    : { year: "numeric", month: "short", day: "numeric" };
 
-  return date.toLocaleDateString(
-    undefined,
-    sameYear ? optionsSameYear : optionsDifferentYear
-  );
+  return date.toLocaleDateString(undefined, options);
 }
-
 
 // =========================================================
 // Haptics
