@@ -296,6 +296,32 @@ function loadHistory(callback) {
   };
 }
 
+function formatHistoryDate(dateString) {
+  const date = new Date(dateString);
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+
+  // Normalize times for comparison
+  const isSameDay = (a, b) =>
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate();
+
+  if (isSameDay(date, today)) return "Today";
+  if (isSameDay(date, yesterday)) return "Yesterday";
+
+  const optionsSameYear = { weekday: "short", month: "short", day: "numeric" };
+  const optionsDifferentYear = { year: "numeric", month: "short", day: "numeric" };
+
+  const sameYear = date.getFullYear() === today.getFullYear();
+
+  return date.toLocaleDateString(
+    undefined,
+    sameYear ? optionsSameYear : optionsDifferentYear
+  );
+}
+
 
 // =========================================================
 // Haptics
@@ -369,7 +395,7 @@ function computeGlobalPercent() {
 }
 
 function renderHistory() {
-  loadHistory((logs) => {
+  loadHistory(logs => {
     const streakEl = document.querySelector('[data-history="streak"]');
     const yesterdayEl = document.querySelector('[data-history="yesterday"]');
     const listEl = document.querySelector('[data-history="list"]');
@@ -394,7 +420,7 @@ function renderHistory() {
       const div = document.createElement("div");
       div.className = "history-item";
       div.innerHTML = `
-        <span>${log.date}</span>
+        <span>${formatHistoryDate(log.date)}</span>
         <span>${Math.round(log.completion)}%</span>
       `;
       listEl.appendChild(div);
@@ -482,6 +508,35 @@ if (summaryPill) {
     }
   });
 }
+
+const drawerScroll = document.querySelector(".drawer-scroll");
+const shadowTop = document.querySelector(".scroll-shadow.top");
+const shadowBottom = document.querySelector(".scroll-shadow.bottom");
+
+function updateScrollShadows() {
+  const { scrollTop, scrollHeight, clientHeight } = drawerScroll;
+
+  // Show top shadow if not at top
+  if (scrollTop > 0) {
+    shadowTop.classList.add("visible");
+  } else {
+    shadowTop.classList.remove("visible");
+  }
+
+  // Show bottom shadow if not at bottom
+  if (scrollTop + clientHeight < scrollHeight - 1) {
+    shadowBottom.classList.add("visible");
+  } else {
+    shadowBottom.classList.remove("visible");
+  }
+}
+
+// Update on scroll
+drawerScroll.addEventListener("scroll", updateScrollShadows);
+
+// Update when drawer opens (content height changes)
+const observer = new ResizeObserver(updateScrollShadows);
+observer.observe(drawerScroll);
 
 // =========================================================
 // Tiers & Rows
