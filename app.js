@@ -956,3 +956,8 @@ window.addEventListener("DOMContentLoaded", () => {
   attachHapticOnPointerDown("[data-haptic]", hapticLight);
   attachHapticOnPointerDown("[data-haptic-double]", hapticDouble);
 });
+
+document.body.addEventListener("pointerdown", () => {
+  console.log("pointerdown fired");
+  navigator.vibrate(20);
+});
