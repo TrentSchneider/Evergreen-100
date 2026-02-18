@@ -1,0 +1,32 @@
+# Node
+node_modules/
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+
+# Test coverage (if enabled later)
+coverage/
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Local environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+
+# Editor folders
+.vscode/
+.idea/
+
+# Build artifacts (if you add a bundler later)
+dist/
+build/
+
+# GitHub Pages artifacts (if using /docs deployment)
+docs/.vite/
+docs/node_modules/
