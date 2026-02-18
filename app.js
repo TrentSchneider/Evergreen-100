@@ -49,7 +49,7 @@ const DB_NAME = EvergreenConfig.dbName;
 const DB_STORE = EvergreenConfig.dbStore;
 
 function initDB() {
-  const request = indexedDB.open(DB_NAME, 2);
+  const request = indexedDB.open(DB_NAME, 3);
 
   request.onupgradeneeded = event => {
     db = event.target.result;
@@ -283,6 +283,20 @@ function snapshotDay(dateStr, callback) {
   tx.oncomplete = () => callback && callback(completion);
 }
 
+function loadHistory(callback) {
+  const tx = db.transaction("daily_logs", "readonly");
+  const store = tx.objectStore("daily_logs");
+  const req = store.getAll();
+
+  req.onsuccess = () => {
+    const logs = req.result || [];
+    // Sort newest → oldest
+    logs.sort((a, b) => (a.date < b.date ? 1 : -1));
+    callback(logs);
+  };
+}
+
+
 // =========================================================
 // Haptics
 // =========================================================
@@ -352,6 +366,40 @@ function computeGlobalPercent() {
     0
   );
   return Math.max(0, Math.min(1, totalDone / totalRequired)) * 100;
+}
+
+function renderHistory() {
+  loadHistory((logs) => {
+    const streakEl = document.querySelector('[data-history="streak"]');
+    const yesterdayEl = document.querySelector('[data-history="yesterday"]');
+    const listEl = document.querySelector('[data-history="list"]');
+
+    if (!streakEl || !yesterdayEl || !listEl) return;
+
+    // 1. Streak
+    streakEl.textContent = `${state.settings.streak} day${state.settings.streak === 1 ? "" : "s"}`;
+
+    // 2. Yesterday
+    const today = todayString();
+    const yesterday = logs.find(l => l.date !== today);
+    if (yesterday) {
+      yesterdayEl.textContent = `${Math.round(yesterday.completion)}%`;
+    } else {
+      yesterdayEl.textContent = "—";
+    }
+
+    // 3. Recent days (limit to last 7)
+    listEl.innerHTML = "";
+    logs.slice(0, 7).forEach(log => {
+      const div = document.createElement("div");
+      div.className = "history-item";
+      div.innerHTML = `
+        <span>${log.date}</span>
+        <span>${Math.round(log.completion)}%</span>
+      `;
+      listEl.appendChild(div);
+    });
+  });
 }
 
 function recomputeAndRenderSummary() {
@@ -593,6 +641,7 @@ function adjust(ex, delta) {
   saveValue(ex.id, value, () => {
     updateRowUI(ex);
     recomputeAndRenderSummary();
+    renderHistory();
   });
 }
 
@@ -669,6 +718,7 @@ function wireRowControls() {
       saveValue(ex.id, parsed, () => {
         updateRowUI(ex);
         recomputeAndRenderSummary();
+        renderHistory();
         clearDirty();
       });
     });
@@ -761,6 +811,7 @@ function wireResetButton() {
     });
 
     recomputeAndRenderSummary();
+    renderHistory();
 
     // Close modal
     overlay.classList.remove("visible");
@@ -811,6 +862,7 @@ function renderAll() {
           wireSettingsCard();
           wireResetButton();
           recomputeAndRenderSummary();
+          renderHistory();
         });
 
         return; // prevent double render
@@ -822,6 +874,7 @@ function renderAll() {
       wireSettingsCard();
       wireResetButton();
       recomputeAndRenderSummary();
+      renderHistory();
     });
   });
 }

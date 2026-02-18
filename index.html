@@ -25,7 +25,26 @@
 
         <!-- Drawer nested inside pill -->
         <div id="summary-drawer">
-          <div id="summary-drawer-content"></div>
+          <div class="drawer-scroll">
+            <div id="summary-drawer-content"></div>
+
+            <div data-summary="history" class="summary-history">
+              <div class="history-section">
+                <div class="history-title">Streak</div>
+                <div data-history="streak" class="history-value">0 days</div>
+              </div>
+
+              <div class="history-section">
+                <div class="history-title">Yesterday</div>
+                <div data-history="yesterday" class="history-value">—</div>
+              </div>
+
+              <div class="history-section">
+                <div class="history-title">Recent Days</div>
+                <div data-history="list" class="history-list"></div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
