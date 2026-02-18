@@ -561,9 +561,10 @@ function renderTiers() {
 
     const header = document.createElement("div");
     header.className = "tier-header";
+    header.setAttribute("data-haptic", "");
     header.innerHTML = `
       <span>${tier.name}</span>
-      <span class="tier-toggle" data-tier="${tier.id} data-haptic">
+      <span class="tier-toggle" data-tier="${tier.id}">
         ${state.settings.layout.tierExpanded[tier.id] ? "▲" : "▼"}
       </span>
     `;
@@ -585,7 +586,7 @@ function renderTiers() {
 
       const compact = document.createElement("div");
       compact.className = "compact-row";
-      compact.setAttribute("data-haptic", "")
+      compact.setAttribute("data-haptic", "");
       compact.innerHTML = `
         <div>${ex.name}</div>
         <div id="compact-${ex.id}">
