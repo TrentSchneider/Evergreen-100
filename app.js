@@ -323,29 +323,6 @@ function formatHistoryDate(dateString) {
   return date.toLocaleDateString(undefined, options);
 }
 
-function attachHapticOnPointerDown(selector, hapticFn = hapticLight) {
-  document.querySelectorAll(selector).forEach(el => {
-    el.addEventListener("pointerdown", () => {
-      hapticFn();
-    });
-  });
-}
-
-// =========================================================
-// Haptics
-// =========================================================
-
-// Detect whether vibration is supported at all
-const supportsHaptics = typeof navigator.vibrate === "function";
-
-function hapticLight() {
-  if (supportsHaptics) navigator.vibrate(10);
-}
-
-function hapticDouble() {
-  if (supportsHaptics) navigator.vibrate([40, 40, 40]);
-}
-
 // =========================================================
 // Theme
 // =========================================================
@@ -564,7 +541,6 @@ function renderTiers() {
 
     const header = document.createElement("div");
     header.className = "tier-header";
-    header.setAttribute("data-haptic", "");
     header.innerHTML = `
       <span>${tier.name}</span>
       <span class="tier-toggle" data-tier="${tier.id}">
@@ -589,7 +565,6 @@ function renderTiers() {
 
       const compact = document.createElement("div");
       compact.className = "compact-row";
-      compact.setAttribute("data-haptic", "");
       compact.innerHTML = `
         <div>${ex.name}</div>
         <div id="compact-${ex.id}">
@@ -613,17 +588,15 @@ function renderTiers() {
 
       expanded.innerHTML = `
         <div class="controls">
-          <button id="save-${ex.id}" class="save-btn" data-haptic-double>${saveIcon}</button>
+          <button id="save-${ex.id}" class="save-btn">${saveIcon}</button>
           <input id="input-${ex.id}" type="text" />
-          <button class="arrow-btn" id="inc-${ex.id} data-haptic">▲</button>
-          <button class="arrow-btn" id="dec-${ex.id} data-haptic">▼</button>
+          <button class="arrow-btn" id="inc-${ex.id}">▲</button>
+          <button class="arrow-btn" id="dec-${ex.id}">▼</button>
         </div>
         <div class="expanded-row-footer">
           <span id="remaining-${ex.id}"></span>
         </div>
       `;
-
-      wireSingleRowControls(ex);
 
       row.appendChild(compact);
       row.appendChild(expanded);
@@ -634,12 +607,12 @@ function renderTiers() {
     container.appendChild(tierCard);
   });
 
+  wireRowControls();
 }
 
 function toggleTier(tierId) {
   state.settings.layout.tierExpanded[tierId] =
     !state.settings.layout.tierExpanded[tierId];
-  hapticLight();
   saveSettings();
 
   const body = document.getElementById(`tier-body-${tierId}`);
@@ -658,7 +631,6 @@ function toggleTier(tierId) {
 function toggleRowExpanded(id) {
   state.settings.layout.rowExpanded[id] =
     !state.settings.layout.rowExpanded[id];
-  hapticLight();
   saveSettings();
 
   const expanded = document.getElementById(`expanded-${id}`);
@@ -705,7 +677,6 @@ function adjust(ex, delta) {
   if (value < 0) value = 0;
 
   state.values[ex.id] = value;
-  hapticLight();
 
   saveValue(ex.id, value, () => {
     updateRowUI(ex);
@@ -738,55 +709,57 @@ function updateRowUI(ex) {
   }
 }
 
-function wireSingleRowControls(ex) {
-  const inputEl = document.getElementById(`input-${ex.id}`);
-  const incBtn = document.getElementById(`inc-${ex.id}`);
-  const decBtn = document.getElementById(`dec-${ex.id}`);
-  const saveBtn = document.getElementById(`save-${ex.id}`);
+function wireRowControls() {
+  EXERCISES.forEach(ex => {
+    const inputEl = document.getElementById(`input-${ex.id}`);
+    const incBtn = document.getElementById(`inc-${ex.id}`);
+    const decBtn = document.getElementById(`dec-${ex.id}`);
+    const saveBtn = document.getElementById(`save-${ex.id}`);
 
-  if (!inputEl || !incBtn || !decBtn || !saveBtn) return;
+    if (!inputEl || !incBtn || !decBtn || !saveBtn) return;
 
-  // Prefill input
-  inputEl.value = formatValue(ex, state.values[ex.id] || 0);
+    inputEl.value = formatValue(ex, state.values[ex.id] || 0);
 
-  const remainingEl = document.getElementById(`remaining-${ex.id}`);
-  if (remainingEl) {
-    remainingEl.textContent = remaining(ex, state.values[ex.id] || 0);
-  }
+    const remainingEl = document.getElementById(`remaining-${ex.id}`);
+    if (remainingEl) {
+      remainingEl.textContent = remaining(ex, state.values[ex.id] || 0);
+    }
 
-  let dirty = false;
+    let dirty = false;
 
-  function markDirty() {
-    dirty = true;
-    saveBtn.style.display = "inline-flex";
-  }
+    function markDirty() {
+      dirty = true;
+      saveBtn.style.display = "inline-flex";
+    }
 
-  function clearDirty() {
-    dirty = false;
-    saveBtn.style.display = "none";
-  }
+    function clearDirty() {
+      dirty = false;
+      saveBtn.style.display = "none";
+    }
 
-  incBtn.addEventListener("click", () => {
-    adjust(ex, +1);
-    clearDirty();
-  });
-
-  decBtn.addEventListener("click", () => {
-    adjust(ex, -1);
-    clearDirty();
-  });
-
-  inputEl.addEventListener("input", markDirty);
-
-  saveBtn.addEventListener("click", () => {
-    const parsed = parseValue(ex, inputEl.value);
-    state.values[ex.id] = parsed;
-    hapticDouble();
-    saveValue(ex.id, parsed, () => {
-      updateRowUI(ex);
-      recomputeAndRenderSummary();
-      renderHistory();
+    incBtn.addEventListener("click", () => {
+      adjust(ex, +1);
       clearDirty();
+    });
+
+    decBtn.addEventListener("click", () => {
+      adjust(ex, -1);
+      clearDirty();
+    });
+
+    inputEl.addEventListener("input", () => {
+      markDirty();
+    });
+
+    saveBtn.addEventListener("click", () => {
+      const parsed = parseValue(ex, inputEl.value);
+      state.values[ex.id] = parsed;
+      saveValue(ex.id, parsed, () => {
+        updateRowUI(ex);
+        recomputeAndRenderSummary();
+        renderHistory();
+        clearDirty();
+      });
     });
   });
 }
@@ -860,8 +833,6 @@ function wireResetButton() {
 
   // Confirm reset
   confirmBtn.addEventListener("click", () => {
-    hapticDouble();
-
     // Trigger shake animation on the original reset button
     const trigger = document.querySelector('[data-reset="trigger"]');
     if (trigger) {
@@ -950,10 +921,5 @@ function renderAll() {
 // =========================================================
 
 window.addEventListener("DOMContentLoaded", () => {
-  // Initialize Database
   initDB();
-
-  // Attach haptics globally
-  attachHapticOnPointerDown("[data-haptic]", hapticLight);
-  attachHapticOnPointerDown("[data-haptic-double]", hapticDouble);
 });
