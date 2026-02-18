@@ -14,7 +14,7 @@
        FLOATING SUMMARY PILL — NESTED DRAWER VERSION
        ========================================================= -->
     <div id="summary-container">
-      <div id="summary-pill">
+      <div id="summary-pill" data-haptic>
         <!-- Pill top row -->
         <div class="pill-top">
           <div class="pill-progress">
@@ -78,7 +78,7 @@
     </div>
 
     <!-- Reset Button -->
-    <button data-reset="trigger" class="reset-btn">Reset Progress</button>
+    <button data-reset="trigger" class="reset-btn" data-haptic>Reset Progress</button>
 
     <!-- Reset Alert -->
     <div data-reset="overlay" class="reset-overlay hidden">
@@ -90,8 +90,8 @@
         </div>
 
         <div class="reset-actions">
-          <button data-reset="cancel" class="reset-cancel">Cancel</button>
-          <button data-reset="confirm" class="reset-confirm">Yes, Reset</button>
+          <button data-reset="cancel" class="reset-cancel" data-haptic>Cancel</button>
+          <button data-reset="confirm" class="reset-confirm" data-haptic-double>Yes, Reset</button>
         </div>
       </div>
     </div>

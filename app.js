@@ -195,7 +195,7 @@ function saveSettings() {
 }
 
 // =========================================================
-// Helpers: Time & Formatting
+// Helpers
 // =========================================================
 
 function formatValue(ex, value) {
@@ -321,6 +321,14 @@ function formatHistoryDate(dateString) {
     : { year: "numeric", month: "short", day: "numeric" };
 
   return date.toLocaleDateString(undefined, options);
+}
+
+function attachHapticOnPointerDown(selector, hapticFn = hapticLight) {
+  document.querySelectorAll(selector).forEach(el => {
+    el.addEventListener("pointerdown", () => {
+      hapticFn();
+    });
+  });
 }
 
 // =========================================================
@@ -555,7 +563,7 @@ function renderTiers() {
     header.className = "tier-header";
     header.innerHTML = `
       <span>${tier.name}</span>
-      <span class="tier-toggle" data-tier="${tier.id}">
+      <span class="tier-toggle" data-tier="${tier.id} data-haptic">
         ${state.settings.layout.tierExpanded[tier.id] ? "▲" : "▼"}
       </span>
     `;
@@ -577,6 +585,7 @@ function renderTiers() {
 
       const compact = document.createElement("div");
       compact.className = "compact-row";
+      compact.setAttribute("data-haptic")
       compact.innerHTML = `
         <div>${ex.name}</div>
         <div id="compact-${ex.id}">
@@ -600,10 +609,10 @@ function renderTiers() {
 
       expanded.innerHTML = `
         <div class="controls">
-          <button id="save-${ex.id}" class="save-btn">${saveIcon}</button>
+          <button id="save-${ex.id}" class="save-btn" data-haptic-double>${saveIcon}</button>
           <input id="input-${ex.id}" type="text" />
-          <button class="arrow-btn" id="inc-${ex.id}">▲</button>
-          <button class="arrow-btn" id="dec-${ex.id}">▼</button>
+          <button class="arrow-btn" id="inc-${ex.id} data-haptic">▲</button>
+          <button class="arrow-btn" id="dec-${ex.id} data-haptic">▼</button>
         </div>
         <div class="expanded-row-footer">
           <span id="remaining-${ex.id}"></span>
@@ -939,5 +948,10 @@ function renderAll() {
 // =========================================================
 
 window.addEventListener("DOMContentLoaded", () => {
+  // Initialize Database
   initDB();
+
+  // Attach haptics globally
+  attachHapticOnPointerDown("[data-haptic]", hapticLight);
+  attachHapticOnPointerDown("[data-haptic-double]", hapticDouble);
 });
