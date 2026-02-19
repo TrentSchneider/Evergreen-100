@@ -34,7 +34,13 @@ const EvergreenConfig = {
     approaching: 0.8,
     complete: 1.0,
     over: 1.01
-  }
+  },
+  recoveryTypes: {
+    muscle: { baseDays: 0 }, // daily-capable
+    tendon: { baseDays: 1 }, // every other day baseline
+    ligament: { baseDays: 2 } // slower baseline
+  },
+  recoveryRankMax: 5
 };
 
 const EXERCISES = EvergreenConfig.exercises;
@@ -121,22 +127,34 @@ function getAllValues(callback) {
 function saveValue(id, value, callback) {
   const tx = db.transaction(DB_STORE, "readwrite");
   const store = tx.objectStore(DB_STORE);
-  store.put({ id, value });
 
-  tx.oncomplete = () => {
-    // If we're editing a day that is not "today",
-    // update that day's snapshot (date stays the same).
+  // Fetch existing record to preserve lastCompletedDate if needed
+  const getReq = store.get(id);
+  getReq.onsuccess = e => {
+    const existing = e.target.result || { id, value: 0, lastCompletedDate: null };
+
     const today = todayString();
-    const last = state.settings.lastLogDate;
+    const newRecord = {
+      id,
+      value,
+      // If value > 0, update lastCompletedDate; if 0, you can choose to keep or clear.
+      lastCompletedDate: value > 0 ? today : existing.lastCompletedDate
+    };
 
-    if (last && last !== today) {
-      snapshotDay(last);
-    }
+    store.put(newRecord);
 
-    callback && callback();
+    tx.oncomplete = () => {
+      const todayStr = todayString();
+      const last = state.settings.lastLogDate;
+
+      if (last && last !== todayStr) {
+        snapshotDay(last);
+      }
+
+      callback && callback();
+    };
   };
 }
-
 // =========================================================
 // Settings & Layout Persistence
 // =========================================================
@@ -391,7 +409,9 @@ function renderHistory() {
     if (!streakEl || !yesterdayEl || !listEl) return;
 
     // 1. Streak
-    streakEl.textContent = `${state.settings.streak} day${state.settings.streak === 1 ? "" : "s"}`;
+    streakEl.textContent = `${state.settings.streak} day${
+      state.settings.streak === 1 ? "" : "s"
+    }`;
 
     // 2. Yesterday
     const today = todayString();
@@ -560,7 +580,10 @@ function renderTiers() {
 
     EXERCISES.filter(ex => ex.tier === tier.id).forEach(ex => {
       const row = document.createElement("div");
-      row.className = `exercise-row ${completionClass(ex, state.values[ex.id] || 0)}`;
+      row.className = `exercise-row ${completionClass(
+        ex,
+        state.values[ex.id] || 0
+      )}`;
       row.id = `row-${ex.id}`;
 
       const compact = document.createElement("div");
