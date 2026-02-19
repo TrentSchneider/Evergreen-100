@@ -19,17 +19,18 @@ jobs:
             exit 1
           fi
 
-          # Rule 2: Only feature/* or fix/* can merge into dev
-          if [ "${{ github.base_ref }}" = "dev" ]; then
-            case "${{ github.head_ref }}" in
-              feature/*|fix/*)
-                echo "Allowed branch type."
-                ;;
-              *)
-                echo "ERROR: Only 'feature/*' or 'fix/*' branches may merge into 'dev'."
-                exit 1
-                ;;
-            esac
-          fi
+          # Rule 2: Only feature/*, fix/*, or *-patch-* can merge into dev
+if [ "${{ github.base_ref }}" = "dev" ]; then
+  case "${{ github.head_ref }}" in
+    feature/*|fix/*|*-patch-*)
+      echo "Allowed branch type."
+      ;;
+    *)
+      echo "ERROR: Only 'feature/*', 'fix/*', or '*-patch-*' branches may merge into 'dev'."
+      exit 1
+      ;;
+  esac
+fi
+
 
           echo "Branch policy passed."
