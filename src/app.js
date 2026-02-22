@@ -2,6 +2,17 @@
 // Evergreen Config
 // =========================================================
 
+import {
+  getAllValues,
+  saveValue,
+  loadSettings,
+  saveSettings,
+  snapshotDay,
+  loadHistory
+} from "./db/progressStore.js";
+
+import { openDb } from "./db/openDb.js";
+
 const EvergreenConfig = {
   dbName: "evergreen100_v2",
   dbStore: "progress",
@@ -36,9 +47,9 @@ const EvergreenConfig = {
     over: 1.01
   },
   recoveryTypes: {
-    muscle: { baseDays: 0 }, // daily-capable
-    tendon: { baseDays: 1 }, // every other day baseline
-    ligament: { baseDays: 2 } // slower baseline
+    muscle: { baseDays: 0 },
+    tendon: { baseDays: 1 },
+    ligament: { baseDays: 2 }
   },
   recoveryRankMax: 5
 };
@@ -47,116 +58,7 @@ const EXERCISES = EvergreenConfig.exercises;
 const TIERS = EvergreenConfig.tiers;
 
 // =========================================================
-// IndexedDB Setup
-// =========================================================
-
-let db;
-const DB_NAME = EvergreenConfig.dbName;
-const DB_STORE = EvergreenConfig.dbStore;
-
-function initDB() {
-  const request = indexedDB.open(DB_NAME, 3);
-
-  request.onupgradeneeded = event => {
-    db = event.target.result;
-    let store;
-
-    // Main progress store
-    if (!db.objectStoreNames.contains(DB_STORE)) {
-      store = db.createObjectStore(DB_STORE, { keyPath: "id" });
-    } else {
-      store = event.target.transaction.objectStore(DB_STORE);
-    }
-
-    // Seed exercise values
-    EXERCISES.forEach(ex => {
-      store.get(ex.id).onsuccess = e => {
-        if (!e.target.result) {
-          store.add({ id: ex.id, value: 0 });
-        }
-      };
-    });
-
-    // Seed settings with new fields
-    store.get("settings").onsuccess = e => {
-      if (!e.target.result) {
-        store.add({
-          id: "settings",
-          value: {
-            theme: "auto",
-            layout: {
-              settingsExpanded: false,
-              tierExpanded: {},
-              rowExpanded: {}
-            },
-            lastLogDate: null,
-            streak: 0,
-            longestStreak: 0
-          }
-        });
-      }
-    };
-
-    // New daily_logs store
-    if (!db.objectStoreNames.contains("daily_logs")) {
-      db.createObjectStore("daily_logs", { keyPath: "date" });
-    }
-  };
-
-  request.onsuccess = event => {
-    db = event.target.result;
-    renderAll();
-  };
-}
-
-function getAllValues(callback) {
-  const tx = db.transaction(DB_STORE, "readonly");
-  const store = tx.objectStore(DB_STORE);
-  const results = {};
-  let remaining = EXERCISES.length;
-
-  EXERCISES.forEach(ex => {
-    store.get(ex.id).onsuccess = e => {
-      results[ex.id] = e.target.result?.value ?? 0;
-      remaining--;
-      if (remaining === 0) callback(results);
-    };
-  });
-}
-
-function saveValue(id, value, callback) {
-  const tx = db.transaction(DB_STORE, "readwrite");
-  const store = tx.objectStore(DB_STORE);
-
-  // Fetch existing record to preserve lastCompletedDate if needed
-  const getReq = store.get(id);
-  getReq.onsuccess = e => {
-    const existing = e.target.result || { id, value: 0, lastCompletedDate: null };
-
-    const today = todayString();
-    const newRecord = {
-      id,
-      value,
-      // If value > 0, update lastCompletedDate; if 0, you can choose to keep or clear.
-      lastCompletedDate: value > 0 ? today : existing.lastCompletedDate
-    };
-
-    store.put(newRecord);
-
-    tx.oncomplete = () => {
-      const todayStr = todayString();
-      const last = state.settings.lastLogDate;
-
-      if (last && last !== todayStr) {
-        snapshotDay(last);
-      }
-
-      callback && callback();
-    };
-  };
-}
-// =========================================================
-// Settings & Layout Persistence
+// State
 // =========================================================
 
 let state = {
@@ -173,44 +75,6 @@ let state = {
     longestStreak: 0
   }
 };
-
-function loadSettings(callback) {
-  const tx = db.transaction(DB_STORE, "readonly");
-  const store = tx.objectStore(DB_STORE);
-  const req = store.get("settings");
-
-  req.onsuccess = e => {
-    const val = e.target.result?.value;
-    if (val) {
-      state.settings.theme = val.theme ?? "auto";
-      state.settings.layout = {
-        settingsExpanded: val.layout?.settingsExpanded ?? false,
-        tierExpanded: val.layout?.tierExpanded ?? {},
-        rowExpanded: val.layout?.rowExpanded ?? {}
-      };
-      state.settings.lastLogDate = val.lastLogDate ?? null;
-      state.settings.streak = val.streak ?? 0;
-      state.settings.longestStreak = val.longestStreak ?? 0;
-    }
-
-    TIERS.forEach(t => {
-      if (state.settings.layout.tierExpanded[t.id] === undefined) {
-        state.settings.layout.tierExpanded[t.id] = !!t.defaultExpanded;
-      }
-    });
-
-    callback && callback();
-  };
-}
-
-function saveSettings() {
-  const tx = db.transaction(DB_STORE, "readwrite");
-  const store = tx.objectStore(DB_STORE);
-  store.put({
-    id: "settings",
-    value: state.settings
-  });
-}
 
 // =========================================================
 // Helpers
@@ -283,40 +147,9 @@ function computeCompletionPercent() {
   return avg * 100;
 }
 
-function snapshotDay(dateStr, callback) {
-  const completion = computeCompletionPercent();
-
-  const log = {
-    date: dateStr, // date is fixed at inception
-    values: { ...state.values }, // final values for that day
-    completion // can be < 100, = 0, > 100
-  };
-
-  const tx = db.transaction("daily_logs", "readwrite");
-  const store = tx.objectStore("daily_logs");
-
-  // Overwrite snapshot for THIS date only (content can change, date cannot)
-  store.put(log);
-
-  tx.oncomplete = () => callback && callback(completion);
-}
-
-function loadHistory(callback) {
-  const tx = db.transaction("daily_logs", "readonly");
-  const store = tx.objectStore("daily_logs");
-  const req = store.getAll();
-
-  req.onsuccess = () => {
-    const logs = req.result || [];
-    // Sort newest → oldest
-    logs.sort((a, b) => (a.date < b.date ? 1 : -1));
-    callback(logs);
-  };
-}
-
 function parseLocalDate(dateString) {
   const [year, month, day] = dateString.split("-").map(Number);
-  return new Date(year, month - 1, day); // month is zero-indexed
+  return new Date(year, month - 1, day);
 }
 
 function formatHistoryDate(dateString) {
@@ -408,12 +241,10 @@ function renderHistory() {
 
     if (!streakEl || !yesterdayEl || !listEl) return;
 
-    // 1. Streak
     streakEl.textContent = `${state.settings.streak} day${
       state.settings.streak === 1 ? "" : "s"
     }`;
 
-    // 2. Yesterday
     const today = todayString();
     const yesterday = logs.find(l => l.date !== today);
     if (yesterday) {
@@ -422,7 +253,6 @@ function renderHistory() {
       yesterdayEl.textContent = "—";
     }
 
-    // 3. Recent days (limit to last 7)
     listEl.innerHTML = "";
     logs.slice(0, 7).forEach(log => {
       const div = document.createElement("div");
@@ -524,14 +354,12 @@ const shadowBottom = document.querySelector(".scroll-shadow.bottom");
 function updateScrollShadows() {
   const { scrollTop, scrollHeight, clientHeight } = drawerScroll;
 
-  // Show top shadow if not at top
   if (scrollTop > 0) {
     shadowTop.classList.add("visible");
   } else {
     shadowTop.classList.remove("visible");
   }
 
-  // Show bottom shadow if not at bottom
   if (scrollTop + clientHeight < scrollHeight - 1) {
     shadowBottom.classList.add("visible");
   } else {
@@ -539,10 +367,8 @@ function updateScrollShadows() {
   }
 }
 
-// Update on scroll
 drawerScroll.addEventListener("scroll", updateScrollShadows);
 
-// Update when drawer opens (content height changes)
 const observer = new ResizeObserver(updateScrollShadows);
 observer.observe(drawerScroll);
 
@@ -633,28 +459,10 @@ function renderTiers() {
   wireRowControls();
 }
 
-function toggleTier(tierId) {
-  state.settings.layout.tierExpanded[tierId] =
-    !state.settings.layout.tierExpanded[tierId];
-  saveSettings();
-
-  const body = document.getElementById(`tier-body-${tierId}`);
-  const toggle = document.querySelector(`.tier-toggle[data-tier="${tierId}"]`);
-  if (!body || !toggle) return;
-
-  if (state.settings.layout.tierExpanded[tierId]) {
-    body.style.maxHeight = "1000px";
-    toggle.textContent = "▲";
-  } else {
-    body.style.maxHeight = "0px";
-    toggle.textContent = "▼";
-  }
-}
-
 function toggleRowExpanded(id) {
   state.settings.layout.rowExpanded[id] =
     !state.settings.layout.rowExpanded[id];
-  saveSettings();
+  saveSettings(state);
 
   const expanded = document.getElementById(`expanded-${id}`);
   if (!expanded) return;
@@ -701,7 +509,7 @@ function adjust(ex, delta) {
 
   state.values[ex.id] = value;
 
-  saveValue(ex.id, value, () => {
+  saveValue(ex.id, value, todayString, () => {
     updateRowUI(ex);
     recomputeAndRenderSummary();
     renderHistory();
@@ -777,7 +585,7 @@ function wireRowControls() {
     saveBtn.addEventListener("click", () => {
       const parsed = parseValue(ex, inputEl.value);
       state.values[ex.id] = parsed;
-      saveValue(ex.id, parsed, () => {
+      saveValue(ex.id, parsed, todayString, () => {
         updateRowUI(ex);
         recomputeAndRenderSummary();
         renderHistory();
@@ -818,13 +626,13 @@ function wireSettingsCard() {
       settingsToggle.textContent = "▼";
     }
 
-    saveSettings();
+    saveSettings(state);
   });
 
   document.querySelectorAll(".theme-option").forEach(btn => {
     btn.addEventListener("click", () => {
       state.settings.theme = btn.dataset.theme;
-      saveSettings();
+      saveSettings(state);
       applyTheme();
     });
   });
@@ -842,38 +650,32 @@ function wireResetButton() {
 
   if (!trigger || !overlay || !cancelBtn || !confirmBtn) return;
 
-  // Open modal
   trigger.addEventListener("click", () => {
     overlay.classList.remove("hidden");
     overlay.classList.add("visible");
   });
 
-  // Cancel
   cancelBtn.addEventListener("click", () => {
     overlay.classList.remove("visible");
     setTimeout(() => overlay.classList.add("hidden"), 250);
   });
 
-  // Confirm reset
   confirmBtn.addEventListener("click", () => {
-    // Trigger shake animation on the original reset button
     const trigger = document.querySelector('[data-reset="trigger"]');
     if (trigger) {
       trigger.classList.add("shake");
       setTimeout(() => trigger.classList.remove("shake"), 400);
     }
 
-    // Reset all values
     EXERCISES.forEach(ex => {
       state.values[ex.id] = 0;
-      saveValue(ex.id, 0);
+      saveValue(ex.id, 0, todayString);
       updateRowUI(ex);
     });
 
     recomputeAndRenderSummary();
     renderHistory();
 
-    // Close modal
     overlay.classList.remove("visible");
     setTimeout(() => overlay.classList.add("hidden"), 250);
   });
@@ -884,51 +686,51 @@ function wireResetButton() {
 // =========================================================
 
 function renderAll() {
-  getAllValues(values => {
+  getAllValues(EXERCISES).then(values => {
     state.values = values;
 
-    loadSettings(() => {
+    loadSettings(state, TIERS, () => {
       const today = todayString();
       const last = state.settings.lastLogDate;
 
-      // First run: no lastLogDate yet
       if (!last) {
         state.settings.lastLogDate = today;
-        saveSettings();
+        saveSettings(state);
       } else if (last !== today) {
-        // New day detected: snapshot yesterday, reset today
-        snapshotDay(last, completion => {
-          // Update streak based on yesterday's completion
-          if (completion >= 100) {
-            state.settings.streak += 1;
-            if (state.settings.streak > state.settings.longestStreak) {
-              state.settings.longestStreak = state.settings.streak;
+        snapshotDay(
+          last,
+          state.values,
+          computeCompletionPercent,
+          completion => {
+            if (completion >= 100) {
+              state.settings.streak += 1;
+              if (state.settings.streak > state.settings.longestStreak) {
+                state.settings.longestStreak = state.settings.streak;
+              }
+            } else {
+              state.settings.streak = 0;
             }
-          } else {
-            state.settings.streak = 0;
+
+            EXERCISES.forEach(ex => {
+              state.values[ex.id] = 0;
+              saveValue(ex.id, 0, todayString);
+            });
+
+            state.settings.lastLogDate = today;
+            saveSettings(state);
+
+            applyTheme();
+            renderTiers();
+            wireSettingsCard();
+            wireResetButton();
+            recomputeAndRenderSummary();
+            renderHistory();
           }
+        );
 
-          // Reset values for new day
-          EXERCISES.forEach(ex => {
-            state.values[ex.id] = 0;
-            saveValue(ex.id, 0);
-          });
-
-          state.settings.lastLogDate = today;
-          saveSettings();
-
-          applyTheme();
-          renderTiers();
-          wireSettingsCard();
-          wireResetButton();
-          recomputeAndRenderSummary();
-          renderHistory();
-        });
-
-        return; // prevent double render
+        return;
       }
 
-      // Normal same-day render
       applyTheme();
       renderTiers();
       wireSettingsCard();
@@ -943,6 +745,7 @@ function renderAll() {
 // App Initialization
 // =========================================================
 
-window.addEventListener("DOMContentLoaded", () => {
-  initDB();
+window.addEventListener("DOMContentLoaded", async () => {
+  await openDb();
+  renderAll();
 });
