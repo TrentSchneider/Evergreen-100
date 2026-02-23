@@ -1,7 +1,6 @@
-// recoveryEngine.test.js
+import { describe, it, expect, beforeEach } from "vitest";
 
-import { describe, test, expect } from "vitest";
-
+// Import the recovery engine functions
 import {
   rankAdjustment,
   getRecoveryEntries,
@@ -12,133 +11,123 @@ import {
   getDaysRemaining
 } from "../src/recoveryEngine.js";
 
-// You can mock EvergreenConfig + helpers for tests:
+// ---------------------------------------------------------
+// Mock EvergreenConfig + parseLocalDate
+// ---------------------------------------------------------
+
 global.EvergreenConfig = {
+  recoveryRankMax: 5,
   recoveryTypes: {
     muscle: { baseDays: 0 },
     tendon: { baseDays: 1 },
     ligament: { baseDays: 2 }
-  },
-  recoveryRankMax: 5
+  }
 };
 
-global.todayString = () => "2026-02-18";
-global.parseLocalDate = dateString => {
-  const [y, m, d] = dateString.split("-").map(Number);
+global.parseLocalDate = (str) => {
+  const [y, m, d] = str.split("-").map(Number);
   return new Date(y, m - 1, d);
 };
 
-describe("rankAdjustment", () => {
-  test("rank 1 → 0 extra days", () => {
+describe("Recovery Engine", () => {
+  // -------------------------------------------------------
+  // rankAdjustment
+  // -------------------------------------------------------
+  it("rankAdjustment clamps and subtracts 1", () => {
     expect(rankAdjustment(1)).toBe(0);
+    expect(rankAdjustment(3)).toBe(2);
+    expect(rankAdjustment(10)).toBe(4); // clamped to max=5 → 5-1=4
   });
 
-  test("rank 5 → 4 extra days", () => {
-    expect(rankAdjustment(5)).toBe(4);
-  });
-
-  test("below 1 → 0", () => {
+  it("rankAdjustment returns 0 for invalid ranks", () => {
     expect(rankAdjustment(0)).toBe(0);
+    expect(rankAdjustment(null)).toBe(0);
+    expect(rankAdjustment(undefined)).toBe(0);
   });
 
-  test("above max is clamped", () => {
-    expect(rankAdjustment(10)).toBe(4);
-  });
-});
-
-describe("getRecoveryEntries", () => {
-  test("defaults to muscle rank 1 when missing", () => {
-    const ex = { id: "test" };
-    const entries = getRecoveryEntries(ex);
-    expect(entries).toEqual([{ type: "muscle", rank: 1 }]);
+  // -------------------------------------------------------
+  // getRecoveryEntries
+  // -------------------------------------------------------
+  it("getRecoveryEntries returns default muscle rank 1 when missing", () => {
+    expect(getRecoveryEntries({})).toEqual([{ type: "muscle", rank: 1 }]);
   });
 
-  test("returns existing recovery array", () => {
-    const ex = { id: "test", recovery: [{ type: "tendon", rank: 3 }] };
-    expect(getRecoveryEntries(ex)).toBe(ex.recovery);
+  it("getRecoveryEntries returns provided entries", () => {
+    const ex = { recovery: [{ type: "tendon", rank: 3 }] };
+    expect(getRecoveryEntries(ex)).toEqual(ex.recovery);
   });
-});
 
-describe("getCooldownDaysForEntry", () => {
-  test("muscle rank 1 → 0 days", () => {
+  // -------------------------------------------------------
+  // getCooldownDaysForEntry
+  // -------------------------------------------------------
+  it("getCooldownDaysForEntry computes base + rankAdjustment", () => {
     expect(getCooldownDaysForEntry({ type: "muscle", rank: 1 })).toBe(0);
+    expect(getCooldownDaysForEntry({ type: "tendon", rank: 2 })).toBe(1 + 1);
+    expect(getCooldownDaysForEntry({ type: "ligament", rank: 5 })).toBe(2 + 4);
   });
 
-  test("tendon rank 3 → base 1 + (3-1)=3 days", () => {
-    expect(getCooldownDaysForEntry({ type: "tendon", rank: 3 })).toBe(3);
-  });
-
-  test("unknown type falls back to muscle base", () => {
-    expect(getCooldownDaysForEntry({ type: "unknown", rank: 5 })).toBe(0);
-  });
-});
-
-describe("getCooldownDaysForExercise", () => {
-  test("takes max across entries", () => {
+  // -------------------------------------------------------
+  // getCooldownDaysForExercise
+  // -------------------------------------------------------
+  it("getCooldownDaysForExercise returns max across entries", () => {
     const ex = {
       recovery: [
-        { type: "muscle", rank: 1 }, // 0
-        { type: "tendon", rank: 3 }, // 3
-        { type: "ligament", rank: 2 } // 3 (2 + (2-1))
+        { type: "muscle", rank: 1 },   // 0
+        { type: "tendon", rank: 3 }    // 1 + 2 = 3
       ]
     };
     expect(getCooldownDaysForExercise(ex)).toBe(3);
   });
-});
 
-describe("computeNextAvailableDate", () => {
-  test("null lastCompletedDate → null", () => {
-    const ex = { recovery: [{ type: "muscle", rank: 1 }] };
-    expect(computeNextAvailableDate(null, ex)).toBeNull();
+  // -------------------------------------------------------
+  // computeNextAvailableDate
+  // -------------------------------------------------------
+  it("computeNextAvailableDate returns null when no lastCompletedDate", () => {
+    expect(computeNextAvailableDate(null, {})).toBe(null);
   });
 
-  test("muscle rank 1 → no cooldown (null next date)", () => {
-    const ex = { recovery: [{ type: "muscle", rank: 1 }] };
-    const next = computeNextAvailableDate("2026-02-18", ex);
-    expect(next).toBeNull();
+  it("computeNextAvailableDate returns null when cooldown is 0", () => {
+    const ex = { recovery: [{ type: "muscle", rank: 1 }] }; // cooldown = 0
+    expect(computeNextAvailableDate("2026-02-20", ex)).toBe(null);
   });
 
-  test("tendon rank 3 → 3 days after", () => {
+  it("computeNextAvailableDate adds cooldown days", () => {
+    const ex = { recovery: [{ type: "tendon", rank: 3 }] }; // cooldown = 3
+    const next = computeNextAvailableDate("2026-02-20", ex);
+    expect(next.toISOString().slice(0, 10)).toBe("2026-02-23");
+  });
+
+  // -------------------------------------------------------
+  // isExerciseAvailableOnDate
+  // -------------------------------------------------------
+  it("isExerciseAvailableOnDate returns true when never completed", () => {
+    expect(isExerciseAvailableOnDate(null, {}, "2026-02-22")).toBe(true);
+  });
+
+  it("isExerciseAvailableOnDate returns false when still cooling down", () => {
+    const ex = { recovery: [{ type: "tendon", rank: 3 }] }; // cooldown = 3
+    expect(isExerciseAvailableOnDate("2026-02-20", ex, "2026-02-21")).toBe(false);
+  });
+
+  it("isExerciseAvailableOnDate returns true when cooldown passed", () => {
     const ex = { recovery: [{ type: "tendon", rank: 3 }] };
-    const next = computeNextAvailableDate("2026-02-18", ex);
-    expect(next.toISOString().slice(0, 10)).toBe("2026-02-21");
-  });
-});
-
-describe("isExerciseAvailableOnDate", () => {
-  test("never completed → available", () => {
-    const ex = { recovery: [{ type: "tendon", rank: 3 }] };
-    expect(isExerciseAvailableOnDate(null, ex, "2026-02-18")).toBe(true);
+    expect(isExerciseAvailableOnDate("2026-02-20", ex, "2026-02-24")).toBe(true);
   });
 
-  test("before next available date → not available", () => {
-    const ex = { recovery: [{ type: "tendon", rank: 3 }] };
-    expect(isExerciseAvailableOnDate("2026-02-18", ex, "2026-02-19")).toBe(
-      false
-    );
+  // -------------------------------------------------------
+  // getDaysRemaining
+  // -------------------------------------------------------
+  it("getDaysRemaining returns 0 when no lastCompletedDate", () => {
+    expect(getDaysRemaining(null, {}, "2026-02-22")).toBe(0);
   });
 
-  test("on or after next available date → available", () => {
-    const ex = { recovery: [{ type: "tendon", rank: 3 }] };
-    expect(isExerciseAvailableOnDate("2026-02-18", ex, "2026-02-21")).toBe(
-      true
-    );
-  });
-});
-
-describe("getDaysRemaining", () => {
-  test("never completed → 0", () => {
-    const ex = { recovery: [{ type: "tendon", rank: 3 }] };
-    expect(getDaysRemaining(null, ex, "2026-02-18")).toBe(0);
+  it("getDaysRemaining returns correct positive days", () => {
+    const ex = { recovery: [{ type: "tendon", rank: 3 }] }; // cooldown = 3
+    expect(getDaysRemaining("2026-02-20", ex, "2026-02-21")).toBe(2);
   });
 
-  test("returns positive days until available", () => {
+  it("getDaysRemaining returns 0 when cooldown passed", () => {
     const ex = { recovery: [{ type: "tendon", rank: 3 }] };
-    expect(getDaysRemaining("2026-02-18", ex, "2026-02-19")).toBe(2);
-  });
-
-  test("on or after next date → 0", () => {
-    const ex = { recovery: [{ type: "tendon", rank: 3 }] };
-    expect(getDaysRemaining("2026-02-18", ex, "2026-02-21")).toBe(0);
+    expect(getDaysRemaining("2026-02-20", ex, "2026-02-25")).toBe(0);
   });
 });

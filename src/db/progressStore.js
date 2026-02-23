@@ -1,14 +1,19 @@
 // =========================================================
-// Evergreen 100 — Progress Store Operations
+// Evergreen 100 — Progress Store Operations 
 // =========================================================
 
-import { openDb } from "./openDb.js";
-import { STORE_PROGRESS, STORE_DAILY_LOGS } from "./schema.js";
+// Lazy-load DB + schema only when needed
+async function loadDb() {
+  const { openDb } = await import("./openDb.js");
+  const { STORE_PROGRESS, STORE_DAILY_LOGS } = await import("./schema.js");
+  return { openDb, STORE_PROGRESS, STORE_DAILY_LOGS };
+}
 
 // ---------------------------------------------------------
 // Get all exercise values
 // ---------------------------------------------------------
 export async function getAllValues(exercises) {
+  const { openDb, STORE_PROGRESS } = await loadDb();
   const db = await openDb();
   const tx = db.transaction(STORE_PROGRESS, "readonly");
   const store = tx.objectStore(STORE_PROGRESS);
@@ -32,6 +37,7 @@ export async function getAllValues(exercises) {
 // Save a single exercise value
 // ---------------------------------------------------------
 export async function saveValue(id, value, todayString, callback) {
+  const { openDb, STORE_PROGRESS } = await loadDb();
   const db = await openDb();
   const tx = db.transaction(STORE_PROGRESS, "readwrite");
   const store = tx.objectStore(STORE_PROGRESS);
@@ -61,6 +67,7 @@ export async function saveValue(id, value, todayString, callback) {
 // Load settings
 // ---------------------------------------------------------
 export async function loadSettings(state, tiers, callback) {
+  const { openDb, STORE_PROGRESS } = await loadDb();
   const db = await openDb();
   const tx = db.transaction(STORE_PROGRESS, "readonly");
   const store = tx.objectStore(STORE_PROGRESS);
@@ -95,6 +102,7 @@ export async function loadSettings(state, tiers, callback) {
 // Save settings
 // ---------------------------------------------------------
 export async function saveSettings(state) {
+  const { openDb, STORE_PROGRESS } = await loadDb();
   const db = await openDb();
   const tx = db.transaction(STORE_PROGRESS, "readwrite");
   const store = tx.objectStore(STORE_PROGRESS);
@@ -109,6 +117,7 @@ export async function saveSettings(state) {
 // Snapshot a day's completion
 // ---------------------------------------------------------
 export async function snapshotDay(dateStr, values, computeCompletion, callback) {
+  const { openDb, STORE_DAILY_LOGS } = await loadDb();
   const db = await openDb();
   const tx = db.transaction(STORE_DAILY_LOGS, "readwrite");
   const store = tx.objectStore(STORE_DAILY_LOGS);
@@ -130,6 +139,7 @@ export async function snapshotDay(dateStr, values, computeCompletion, callback) 
 // Load history
 // ---------------------------------------------------------
 export async function loadHistory(callback) {
+  const { openDb, STORE_DAILY_LOGS } = await loadDb();
   const db = await openDb();
   const tx = db.transaction(STORE_DAILY_LOGS, "readonly");
   const store = tx.objectStore(STORE_DAILY_LOGS);

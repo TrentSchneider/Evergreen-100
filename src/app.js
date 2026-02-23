@@ -2,16 +2,16 @@
 // Evergreen Config
 // =========================================================
 
-import {
-  getAllValues,
-  saveValue,
-  loadSettings,
-  saveSettings,
-  snapshotDay,
-  loadHistory
-} from "./db/progressStore.js";
+// Lazy-load DB store functions
+async function loadStore() {
+  return await import("./db/progressStore.js");
+}
 
-import { openDb } from "./db/openDb.js";
+// Lazy-load DB initialization
+export async function initDb() {
+  const { openDb } = await import("./db/openDb.js");
+  return openDb();
+}
 
 const EvergreenConfig = {
   dbName: "evergreen100_v2",
@@ -233,7 +233,9 @@ function computeGlobalPercent() {
   return Math.max(0, Math.min(1, totalDone / totalRequired)) * 100;
 }
 
-function renderHistory() {
+async function renderHistory() {
+  const { loadHistory } = await loadStore();
+
   loadHistory(logs => {
     const streakEl = document.querySelector('[data-history="streak"]');
     const yesterdayEl = document.querySelector('[data-history="yesterday"]');
@@ -347,6 +349,10 @@ if (summaryPill) {
   });
 }
 
+// =========================================================
+// Scroll Shadows
+// =========================================================
+
 const drawerScroll = document.querySelector(".drawer-scroll");
 const shadowTop = document.querySelector(".scroll-shadow.top");
 const shadowBottom = document.querySelector(".scroll-shadow.bottom");
@@ -459,9 +465,12 @@ function renderTiers() {
   wireRowControls();
 }
 
-function toggleRowExpanded(id) {
+async function toggleRowExpanded(id) {
+  const { saveSettings } = await loadStore();
+
   state.settings.layout.rowExpanded[id] =
     !state.settings.layout.rowExpanded[id];
+
   saveSettings(state);
 
   const expanded = document.getElementById(`expanded-${id}`);
@@ -502,7 +511,9 @@ function attachSwipe(element, ex) {
 // Adjust Values & Row Wiring
 // =========================================================
 
-function adjust(ex, delta) {
+async function adjust(ex, delta) {
+  const { saveValue } = await loadStore();
+
   const current = state.values[ex.id] || 0;
   let value = current + delta;
   if (value < 0) value = 0;
@@ -540,7 +551,13 @@ function updateRowUI(ex) {
   }
 }
 
-function wireRowControls() {
+// =========================================================
+// Wire Row Controls
+// =========================================================
+
+async function wireRowControls() {
+  const { saveValue } = await loadStore();
+
   EXERCISES.forEach(ex => {
     const inputEl = document.getElementById(`input-${ex.id}`);
     const incBtn = document.getElementById(`inc-${ex.id}`);
@@ -582,9 +599,10 @@ function wireRowControls() {
       markDirty();
     });
 
-    saveBtn.addEventListener("click", () => {
+    saveBtn.addEventListener("click", async () => {
       const parsed = parseValue(ex, inputEl.value);
       state.values[ex.id] = parsed;
+
       saveValue(ex.id, parsed, todayString, () => {
         updateRowUI(ex);
         recomputeAndRenderSummary();
@@ -599,7 +617,9 @@ function wireRowControls() {
 // Settings Card & Theme Toggle
 // =========================================================
 
-function wireSettingsCard() {
+async function wireSettingsCard() {
+  const { saveSettings } = await loadStore();
+
   const settingsHeader = document.querySelector(".settings-header");
   const settingsBody = document.getElementById("settings-body");
   const settingsToggle = document.getElementById("settings-toggle");
@@ -642,7 +662,9 @@ function wireSettingsCard() {
 // Reset Button
 // =========================================================
 
-function wireResetButton() {
+async function wireResetButton() {
+  const { saveValue } = await loadStore();
+
   const trigger = document.querySelector('[data-reset="trigger"]');
   const overlay = document.querySelector('[data-reset="overlay"]');
   const cancelBtn = document.querySelector('[data-reset="cancel"]');
@@ -682,62 +704,64 @@ function wireResetButton() {
 }
 
 // =========================================================
-// Render All — Master Initialization Pipeline
+// Render All
 // =========================================================
 
-function renderAll() {
-  getAllValues(EXERCISES).then(values => {
-    state.values = values;
+async function renderAll() {
+  const { getAllValues, loadSettings, saveSettings, snapshotDay, saveValue } =
+    await loadStore();
 
-    loadSettings(state, TIERS, () => {
-      const today = todayString();
-      const last = state.settings.lastLogDate;
+  const values = await getAllValues(EXERCISES);
+  state.values = values;
 
-      if (!last) {
-        state.settings.lastLogDate = today;
-        saveSettings(state);
-      } else if (last !== today) {
-        snapshotDay(
-          last,
-          state.values,
-          computeCompletionPercent,
-          completion => {
-            if (completion >= 100) {
-              state.settings.streak += 1;
-              if (state.settings.streak > state.settings.longestStreak) {
-                state.settings.longestStreak = state.settings.streak;
-              }
-            } else {
-              state.settings.streak = 0;
+  loadSettings(state, TIERS, async () => {
+    const today = todayString();
+    const last = state.settings.lastLogDate;
+
+    if (!last) {
+      state.settings.lastLogDate = today;
+      await saveSettings(state);
+    } else if (last !== today) {
+      snapshotDay(
+        last,
+        state.values,
+        computeCompletionPercent,
+        async completion => {
+          if (completion >= 100) {
+            state.settings.streak += 1;
+            if (state.settings.streak > state.settings.longestStreak) {
+              state.settings.longestStreak = state.settings.streak;
             }
-
-            EXERCISES.forEach(ex => {
-              state.values[ex.id] = 0;
-              saveValue(ex.id, 0, todayString);
-            });
-
-            state.settings.lastLogDate = today;
-            saveSettings(state);
-
-            applyTheme();
-            renderTiers();
-            wireSettingsCard();
-            wireResetButton();
-            recomputeAndRenderSummary();
-            renderHistory();
+          } else {
+            state.settings.streak = 0;
           }
-        );
 
-        return;
-      }
+          for (const ex of EXERCISES) {
+            state.values[ex.id] = 0;
+            await saveValue(ex.id, 0, todayString);
+          }
 
-      applyTheme();
-      renderTiers();
-      wireSettingsCard();
-      wireResetButton();
-      recomputeAndRenderSummary();
-      renderHistory();
-    });
+          state.settings.lastLogDate = today;
+          await saveSettings(state);
+
+          applyTheme();
+          renderTiers();
+          wireSettingsCard();
+          wireResetButton();
+          recomputeAndRenderSummary();
+          renderHistory();
+        }
+      );
+
+      return;
+    }
+
+    applyTheme();
+    renderTiers();
+    wireSettingsCard();
+    wireResetButton();
+    recomputeAndRenderSummary();
+    renderHistory();
   });
 }
 
@@ -746,6 +770,6 @@ function renderAll() {
 // =========================================================
 
 window.addEventListener("DOMContentLoaded", async () => {
-  await openDb();
+  await initDb();
   renderAll();
 });
