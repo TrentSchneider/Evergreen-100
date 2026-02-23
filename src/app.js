@@ -379,6 +379,49 @@ const observer = new ResizeObserver(updateScrollShadows);
 observer.observe(drawerScroll);
 
 // =========================================================
+// Recovery Engine Integration
+// =========================================================
+
+async function isAvailable(ex) {
+  const { loadHistory } = await loadStore();
+  const { isExerciseAvailableOnDate } = await import("./recoveryEngine.js");
+
+  return new Promise(resolve => {
+    loadHistory(history => {
+      const today = todayString();
+
+      // Filter out today's log — recovery is based on *previous* completions
+      const filtered = history.filter(h => h.date !== today);
+
+      const available = isExerciseAvailableOnDate(
+        ex.id,
+        today,
+        filtered,
+        EvergreenConfig
+      );
+
+      resolve(available);
+    });
+  });
+}
+
+async function daysRemaining(ex) {
+  const { loadHistory } = await loadStore();
+  const { getDaysRemaining } = await import("./recoveryEngine.js");
+
+  return new Promise(resolve => {
+    loadHistory(history => {
+      const today = todayString();
+      const filtered = history.filter(h => h.date !== today);
+
+      const days = getDaysRemaining(ex.id, today, filtered, EvergreenConfig);
+
+      resolve(days);
+    });
+  });
+}
+
+// =========================================================
 // Tiers & Rows
 // =========================================================
 
@@ -412,10 +455,7 @@ function renderTiers() {
 
     EXERCISES.filter(ex => ex.tier === tier.id).forEach(ex => {
       const row = document.createElement("div");
-      row.className = `exercise-row ${completionClass(
-        ex,
-        state.values[ex.id] || 0
-      )}`;
+      row.className = "exercise-row loading";
       row.id = `row-${ex.id}`;
 
       const compact = document.createElement("div");
@@ -456,6 +496,22 @@ function renderTiers() {
       row.appendChild(compact);
       row.appendChild(expanded);
       tierBody.appendChild(row);
+
+      // Apply recovery availability state asynchronously
+      setTimeout(async () => {
+        const available = await isAvailable(ex);
+        const value = state.values[ex.id] || 0;
+
+        row.classList.remove("loading");
+
+        if (!available) {
+          row.classList.add("resting");
+        } else {
+          row.classList.remove("resting");
+        }
+
+        row.classList.add(completionClass(ex, value));
+      }, 0);
     });
 
     tierCard.appendChild(tierBody);
@@ -501,8 +557,11 @@ function attachSwipe(element, ex) {
       Math.abs(delta) > threshold &&
       !state.settings.layout.rowExpanded[ex.id]
     ) {
-      if (delta > 0) adjust(ex, +1);
-      else adjust(ex, -1);
+      isAvailable(ex).then(available => {
+        if (!available) return;
+        if (delta > 0) adjust(ex, +1);
+        else adjust(ex, -1);
+      });
     }
   });
 }
@@ -586,13 +645,19 @@ async function wireRowControls() {
     }
 
     incBtn.addEventListener("click", () => {
-      adjust(ex, +1);
-      clearDirty();
+      isAvailable(ex).then(available => {
+        if (!available) return;
+        adjust(ex, +1);
+        clearDirty();
+      });
     });
 
     decBtn.addEventListener("click", () => {
-      adjust(ex, -1);
-      clearDirty();
+      isAvailable(ex).then(available => {
+        if (!available) return;
+        adjust(ex, -1);
+        clearDirty();
+      });
     });
 
     inputEl.addEventListener("input", () => {
@@ -600,6 +665,9 @@ async function wireRowControls() {
     });
 
     saveBtn.addEventListener("click", async () => {
+      const available = await isAvailable(ex);
+      if (!available) return;
+
       const parsed = parseValue(ex, inputEl.value);
       state.values[ex.id] = parsed;
 

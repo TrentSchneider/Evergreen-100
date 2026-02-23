@@ -359,7 +359,9 @@ body.theme-dark .scroll-shadow.bottom {
   border-radius: 12px;
 
   border: 1px solid var(--border);
-  transition: background 0.2s ease, transform 0.15s ease;
+  transition:
+    background 0.2s ease,
+    transform 0.15s ease;
 }
 
 /* Hover / tap micro-interaction */
@@ -384,7 +386,6 @@ body.theme-dark .scroll-shadow.bottom {
   font-weight: 600;
   color: var(--text);
 }
-
 
 /* =========================================================
    CARD BASE
@@ -442,6 +443,10 @@ body.theme-dark .scroll-shadow.bottom {
 }
 .exercise-row.over {
   background: var(--row-bg-over);
+}
+.exercise-row.resting {
+  opacity: 0.5;
+  pointer-events: none;
 }
 
 .compact-row {
