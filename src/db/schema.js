@@ -2,6 +2,7 @@
 // Evergreen 100 — IndexedDB Schema & Migrations
 // =========================================================
 
+// These constants are safe to export — they contain no DB access.
 export const DB_NAME = "evergreen100_v2";
 export const DB_VERSION = 4;
 
@@ -31,6 +32,9 @@ function setupV1(db) {
 // V2 — Seed exercises + settings
 // ---------------------------------------------------------
 function setupV2(db, tx) {
+  // If tx is missing (shouldn't happen, but safe for tests)
+  if (!tx) return;
+
   const store = tx.objectStore(STORE_PROGRESS);
 
   // Seed exercises
@@ -87,6 +91,8 @@ function setupV3(db) {
 // V4 — Add lastCompletedDate index
 // ---------------------------------------------------------
 function setupV4(db, tx) {
+  if (!tx) return; // safety for tests
+
   const store = tx.objectStore(STORE_PROGRESS);
 
   if (!store.indexNames.contains("byLastCompletedDate")) {
