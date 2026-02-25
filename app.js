@@ -256,13 +256,13 @@ function todayString() {
 }
 
 function computeCompletionPercent() {
-  const totalRequired = EXERCISES.reduce((sum, ex) => sum + ex.total, 0);
-  const totalDone = EXERCISES.reduce(
-    (sum, ex) => sum + (state.values[ex.id] || 0),
-    0
-  );
-  if (totalRequired === 0) return 0;
-  return Math.max(0, Math.min(1, totalDone / totalRequired)) * 100;
+  const ratios = EXERCISES.map(ex => {
+    const value = state.values[ex.id] || 0;
+    return Math.min(1, value / ex.total);
+  });
+
+  const avg = ratios.reduce((sum, r) => sum + r, 0) / ratios.length;
+  return avg * 100;
 }
 
 function snapshotDay(dateStr, callback) {
@@ -417,7 +417,7 @@ function renderHistory() {
 }
 
 function recomputeAndRenderSummary() {
-  const globalPercent = computeGlobalPercent();
+  const globalPercent = computeCompletionPercent();
 
   const exercisesSummary = EXERCISES.map(ex => ({
     name: ex.name,
