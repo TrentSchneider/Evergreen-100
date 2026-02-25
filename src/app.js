@@ -1,11 +1,21 @@
 import { initDb, loadStore } from "./state/storage.js";
-import { state, setLastLogDate, incrementStreak, resetStreak, setAllExerciseValues } from "./state/state.js";
+import {
+  state,
+  setLastLogDate,
+  incrementStreak,
+  resetStreak,
+  setAllExerciseValues
+} from "./state/state.js";
 import { EXERCISES, TIERS } from "./data/config.js";
 import { todayString } from "./utils/dates.js";
-import { computeCompletionPercent } from "./state/completion.js";
+import { computeGlobalPercent } from "./state/completion.js";
 
 import { applyTheme } from "./ui/theme.js";
-import { initSummaryUI, recomputeAndRenderSummary, renderHistory } from "./ui/summary.js";
+import {
+  initSummaryUI,
+  recomputeAndRenderSummary,
+  renderHistory
+} from "./ui/summary.js";
 import { renderTiers } from "./ui/tiers.js";
 import { wireSettingsCard } from "./ui/settings.js";
 import { wireResetButton } from "./ui/reset.js";
@@ -39,7 +49,7 @@ async function renderAll() {
       snapshotDay(
         last,
         state.values,
-        computeCompletionPercent,
+        computeGlobalPercent,   // ← FIXED: correct compute function
         async completion => {
           if (completion >= 100) {
             incrementStreak();
@@ -85,6 +95,10 @@ async function renderAll() {
 
 window.addEventListener("DOMContentLoaded", async () => {
   await initDb();
+
+  // Ensure DB is fully opened AND seeded before UI logic runs
+  const { openDb } = await import("./db/openDb.js");
+  await openDb();
 
   // Initialize UI subsystems
   initSummaryUI();

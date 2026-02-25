@@ -1,5 +1,5 @@
 // =========================================================
-// Evergreen 100 — IndexedDB Schema & Migrations
+// Evergreen 100 — IndexedDB Schema & Migrations (Patched)
 // =========================================================
 
 // These constants are safe to export — they contain no DB access.
@@ -12,11 +12,13 @@ export const STORE_DAILY_LOGS = "daily_logs";
 // ---------------------------------------------------------
 // Versioned Migration Dispatcher
 // ---------------------------------------------------------
+// IMPORTANT: All migrations must be synchronous and schema-only.
+// No async reads/writes allowed inside onupgradeneeded.
 export function migrateFrom(oldVersion, db, tx) {
   if (oldVersion < 1) setupV1(db);
-  if (oldVersion < 2) setupV2(db, tx);
+  if (oldVersion < 2) setupV2(db); // patched: no async seeding
   if (oldVersion < 3) setupV3(db);
-  if (oldVersion < 4) setupV4(db, tx); // NEW MIGRATION
+  if (oldVersion < 4) setupV4(db, tx); // index creation only
 }
 
 // ---------------------------------------------------------
@@ -29,53 +31,14 @@ function setupV1(db) {
 }
 
 // ---------------------------------------------------------
-// V2 — Seed exercises + settings
+// V2 — (Patched) No async seeding allowed in migrations
 // ---------------------------------------------------------
-function setupV2(db, tx) {
-  // If tx is missing (shouldn't happen, but safe for tests)
-  if (!tx) return;
-
-  const store = tx.objectStore(STORE_PROGRESS);
-
-  // Seed exercises
-  const defaultExercises = [
-    "push",
-    "pull",
-    "core",
-    "legs",
-    "grip",
-    "utility"
-  ];
-
-  defaultExercises.forEach(id => {
-    const req = store.get(id);
-    req.onsuccess = e => {
-      if (!e.target.result) {
-        store.add({ id, value: 0, lastCompletedDate: null });
-      }
-    };
-  });
-
-  // Seed settings
-  const settingsReq = store.get("settings");
-  settingsReq.onsuccess = e => {
-    if (!e.target.result) {
-      store.add({
-        id: "settings",
-        value: {
-          theme: "auto",
-          layout: {
-            settingsExpanded: false,
-            tierExpanded: {},
-            rowExpanded: {}
-          },
-          lastLogDate: null,
-          streak: 0,
-          longestStreak: 0
-        }
-      });
-    }
-  };
+// Previously this seeded exercises + settings using async store.get()
+// That deadlocks fake-indexeddb during tests.
+// Now V2 is schema-only.
+function setupV2(db) {
+  // No schema changes needed here — seeding moved to openDb()
+  // This migration is intentionally empty.
 }
 
 // ---------------------------------------------------------

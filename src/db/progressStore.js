@@ -1,5 +1,5 @@
 // =========================================================
-// Evergreen 100 — Progress Store Operations 
+// Evergreen 100 — Progress Store Operations
 // =========================================================
 
 // Lazy-load DB + schema only when needed
@@ -122,7 +122,8 @@ export async function snapshotDay(dateStr, values, computeCompletion, callback) 
   const tx = db.transaction(STORE_DAILY_LOGS, "readwrite");
   const store = tx.objectStore(STORE_DAILY_LOGS);
 
-  const completion = computeCompletion();
+  // Pass values into the compute function
+  const completion = computeCompletion(values);
 
   const log = {
     date: dateStr,
