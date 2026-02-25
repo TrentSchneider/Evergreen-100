@@ -475,12 +475,22 @@ input[type="text"] {
 }
 
 .arrow-btn {
-  width: 32px;
-  height: 32px;
+  width: 44px;
+  height: 44px;
   border: none;
   border-radius: 8px;
   background: var(--button-bg);
   color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  touch-action: manipulation;
+  padding: 0;
+}
+
+.arrow-btn:active {
+  transform: scale(0.94);
 }
 
 .save-btn {
@@ -695,3 +705,13 @@ input[type="text"] {
     transform: translateX(0);
   }
 }
+
+/* =========================================================
+   UTILITY CLASSES
+   ========================================================= */
+
+/* Prevent double‑tap zoom on iOS */
+.no-zoom {
+  touch-action: manipulation;
+}
+
