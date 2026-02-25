@@ -588,10 +588,10 @@ function renderTiers() {
 
       expanded.innerHTML = `
         <div class="controls">
-          <button id="save-${ex.id}" class="save-btn">${saveIcon}</button>
+          <button id="save-${ex.id}" class="save-btn no-zoom">${saveIcon}</button>
           <input id="input-${ex.id}" type="text" />
-          <button class="arrow-btn" id="inc-${ex.id}">▲</button>
-          <button class="arrow-btn" id="dec-${ex.id}">▼</button>
+          <button class="arrow-btn no-zoom" id="inc-${ex.id}">▲</button>
+          <button class="arrow-btn no-zoom" id="dec-${ex.id}">▼</button>
         </div>
         <div class="expanded-row-footer">
           <span id="remaining-${ex.id}"></span>
