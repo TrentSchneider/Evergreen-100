@@ -2,7 +2,10 @@
 // Lazy-load DB Store Functions
 // ---------------------------------------------------------
 export async function loadStore() {
-  // Loads: getAllValues, saveValue, loadHistory, loadSettings, saveSettings, snapshotDay
+  // Ensure DB is fully ready before exposing store functions
+  const { openDb } = await import("../db/openDb.js");
+  await openDb();
+
   return await import("../db/progressStore.js");
 }
 
@@ -11,5 +14,5 @@ export async function loadStore() {
 // ---------------------------------------------------------
 export async function initDb() {
   const { openDb } = await import("../db/openDb.js");
-  return openDb();
+  await openDb();   // ensure DB + seeding complete
 }

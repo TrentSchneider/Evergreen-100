@@ -38,7 +38,6 @@ export function renderTiers() {
         ${state.settings.layout.tierExpanded[tier.id] ? "▲" : "▼"}
       </span>
     `;
-    header.addEventListener("click", () => toggleTier(tier.id));
     tierCard.appendChild(header);
 
     // -----------------------------

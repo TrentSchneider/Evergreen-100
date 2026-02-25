@@ -1,5 +1,3 @@
-// src/utils/formatting.js
-
 import { EvergreenConfig } from "../data/config.js";
 
 // ---------------------------------------------------------
@@ -12,7 +10,9 @@ export function formatValue(ex, value) {
     const seconds = value % 60;
     return `${minutes}:${seconds.toString().padStart(2, "0")}`;
   }
-  return value;
+  console.log(ex);
+
+  return String(value);
 }
 
 export function parseValue(ex, text) {
@@ -25,7 +25,7 @@ export function parseValue(ex, text) {
 }
 
 export function formatTotal(ex) {
-  if (ex.type !== "time") return ex.total;
+  if (ex.type !== "time") return String(ex.total);
   const minutes = Math.floor(ex.total / 60);
   const seconds = ex.total % 60;
   return `${minutes}:${seconds.toString().padStart(2, "0")}`;
@@ -45,19 +45,22 @@ export function remaining(ex, value) {
     return `${minutes}:${seconds.toString().padStart(2, "0")} remaining`;
   }
 
-  return `${Math.max(rem, 0)} remaining`;
+  if (value < ex.total) return `${ex.total - value} remaining`;
+  if (value === ex.total) return "Complete";
+  return "Over";
 }
 
 export function completionRatio(ex, value) {
-  return Math.max(0, Math.min(1, value / ex.total));
+  return value / ex.total;
 }
 
 export function completionClass(ex, value) {
   const ratio = value / ex.total;
   const t = EvergreenConfig.thresholds;
 
-  if (ratio >= t.over) return "over";
-  if (ratio >= t.complete) return "complete";
-  if (ratio >= t.approaching) return "approaching";
-  return "neutral";
+  if (ratio === 0) return "neutral";
+  if (ratio < t.approaching) return "neutral";
+  if (ratio < t.complete) return "approaching";
+  if (ratio < t.over) return "complete";
+  return "over";
 }

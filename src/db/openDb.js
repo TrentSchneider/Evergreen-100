@@ -1,5 +1,5 @@
 // =========================================================
-// Evergreen 100 — DB Open Wrapper (Final Patched Version)
+// Evergreen 100 — DB Open Wrapper
 // =========================================================
 
 async function loadSchema() {
@@ -7,19 +7,27 @@ async function loadSchema() {
   return {
     DB_NAME: schema.DB_NAME,
     DB_VERSION: schema.DB_VERSION,
-    migrateFrom: schema.migrateFrom
+    migrateFrom: schema.migrateFrom,
+    STORE_PROGRESS: schema.STORE_PROGRESS
   };
 }
 
 let dbInstance = null;
+let seedingPromise = null;
+let openPromise = null;
 let allConnections = new Set();
 
 export async function openDb() {
-  if (dbInstance) return dbInstance;
+  const { DB_NAME, DB_VERSION, migrateFrom, STORE_PROGRESS } =
+    await loadSchema();
 
-  const { DB_NAME, DB_VERSION, migrateFrom } = await loadSchema();
+  if (openPromise) {
+    await openPromise;
+    if (seedingPromise) await seedingPromise;
+    return dbInstance;
+  }
 
-  return new Promise((resolve, reject) => {
+  openPromise = new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
 
     req.onupgradeneeded = event => {
@@ -28,13 +36,70 @@ export async function openDb() {
       migrateFrom(event.oldVersion, db, tx);
     };
 
+    req.onerror = () => reject(req.error);
+
     req.onsuccess = () => {
-      dbInstance = req.result;
-      allConnections.add(dbInstance);
-      resolve(dbInstance);
+      const db = req.result;
+      dbInstance = db;
+      allConnections.add(db);
+
+      seedingPromise = seedDefaults(db, STORE_PROGRESS);
+
+      seedingPromise.then(() => resolve(db));
+    };
+  });
+
+  await openPromise;
+  await seedingPromise;
+
+  return dbInstance;
+}
+
+// ----------------------------------------------------------
+// Safe post-open seeding
+// ----------------------------------------------------------
+function seedDefaults(db, STORE_PROGRESS) {
+  return new Promise(resolve => {
+    const tx = db.transaction(STORE_PROGRESS, "readwrite");
+    const store = tx.objectStore(STORE_PROGRESS);
+
+    const defaultExercises = [
+      "push",
+      "pull",
+      "core",
+      "legs",
+      "grip",
+      "utility"
+    ];
+
+    defaultExercises.forEach(id => {
+      store.get(id).onsuccess = e => {
+        if (!e.target.result) {
+          store.add({ id, value: 0, lastCompletedDate: null });
+        }
+      };
+    });
+
+    store.get("settings").onsuccess = e => {
+      if (!e.target.result) {
+        store.add({
+          id: "settings",
+          value: {
+            theme: "auto",
+            layout: {
+              settingsExpanded: false,
+              tierExpanded: {},
+              rowExpanded: {}
+            },
+            lastLogDate: null,
+            streak: 0,
+            longestStreak: 0
+          }
+        });
+      }
     };
 
-    req.onerror = () => reject(req.error);
+    tx.oncomplete = () => resolve();
   });
 }
 
@@ -49,6 +114,8 @@ export function __closeDbInstance() {
   }
   allConnections.clear();
   dbInstance = null;
+  seedingPromise = null;
+  openPromise = null;
 }
 
 // ----------------------------------------------------------
@@ -56,4 +123,6 @@ export function __closeDbInstance() {
 // ----------------------------------------------------------
 export function __resetDbInstance() {
   dbInstance = null;
+  seedingPromise = null;
+  openPromise = null;
 }

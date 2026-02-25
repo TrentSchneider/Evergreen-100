@@ -18,6 +18,21 @@ export function parseLocalDate(dateString) {
 }
 
 // ---------------------------------------------------------
+// Format Short Date (YYYY-MM-DD → "Jan 15")
+// ---------------------------------------------------------
+export function formatShort(dateString) {
+  const date = parseLocalDate(dateString);
+
+  return date
+    .toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric"
+    })
+    .replace(",", ""); // normalize across browsers
+}
+
+
+// ---------------------------------------------------------
 // Format History Date (Today / Yesterday / Friendly Format)
 // ---------------------------------------------------------
 export function formatHistoryDate(dateString) {
