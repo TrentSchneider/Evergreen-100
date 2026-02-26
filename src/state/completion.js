@@ -2,9 +2,17 @@ import { EXERCISES } from "../data/config.js";
 import { state } from "./state.js";
 
 // ---------------------------------------------------------
-// Compute Completion Percent (0–100) – global average across exercises
+// Compute Completion Percent (0–100) – for single exercise or global
 // ---------------------------------------------------------
-export function computeCompletionPercent() {
+export function computeCompletionPercent(exercise) {
+  // If a single exercise is provided, compute just for that exercise
+  if (exercise) {
+    const value = state.values[exercise.id] || 0;
+    const ratio = value / exercise.total;
+    return ratio * 100;
+  }
+
+  // Otherwise, global average across all exercises
   const ratios = EXERCISES.map(ex => {
     const value = state.values[ex.id] || 0;
     return Math.min(1, value / ex.total);
