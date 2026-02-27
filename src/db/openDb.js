@@ -3,13 +3,17 @@
 // =========================================================
 
 async function loadSchema() {
-  const schema = await import("./schema.js");
-  return {
-    DB_NAME: schema.DB_NAME,
-    DB_VERSION: schema.DB_VERSION,
-    migrateFrom: schema.migrateFrom,
-    STORE_PROGRESS: schema.STORE_PROGRESS
-  };
+  try {
+    const schema = await import("./schema.js");
+    return {
+      DB_NAME: schema.DB_NAME,
+      DB_VERSION: schema.DB_VERSION,
+      migrateFrom: schema.migrateFrom,
+      STORE_PROGRESS: schema.STORE_PROGRESS
+    };
+  } catch (error) {
+    throw (error && error.cause) || error;
+  }
 }
 
 let dbInstance = null;
@@ -21,6 +25,10 @@ export async function openDb() {
   const { DB_NAME, DB_VERSION, migrateFrom, STORE_PROGRESS } =
     await loadSchema();
 
+  if (dbInstance && dbInstance.name !== DB_NAME) {
+    __resetDbInstance();
+  }
+
   if (openPromise) {
     await openPromise;
     if (seedingPromise) await seedingPromise;
@@ -29,6 +37,23 @@ export async function openDb() {
 
   openPromise = new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
+    let openedDb = null;
+
+    const fail = error => {
+      if (openedDb) {
+        try {
+          openedDb.close();
+        } catch (_) {}
+        allConnections.delete(openedDb);
+        if (dbInstance === openedDb) {
+          dbInstance = null;
+        }
+      }
+
+      openPromise = null;
+      seedingPromise = null;
+      reject(error);
+    };
 
     req.onupgradeneeded = event => {
       const db = req.result;
@@ -36,21 +61,37 @@ export async function openDb() {
       migrateFrom(event.oldVersion, db, tx);
     };
 
-    req.onerror = () => reject(req.error);
+    req.onerror = () => {
+      fail(req.error || new Error("Failed to open IndexedDB"));
+    };
 
     req.onsuccess = () => {
-      const db = req.result;
-      dbInstance = db;
-      allConnections.add(db);
+      openedDb = req.result;
+      dbInstance = openedDb;
+      allConnections.add(openedDb);
 
-      seedingPromise = seedDefaults(db, STORE_PROGRESS);
+      openedDb.onversionchange = () => {
+        try {
+          openedDb.close();
+        } catch (_) {}
 
-      seedingPromise.then(() => resolve(db));
+        allConnections.delete(openedDb);
+
+        if (dbInstance === openedDb) {
+          dbInstance = null;
+          openPromise = null;
+          seedingPromise = null;
+        }
+      };
+
+      seedingPromise = seedDefaults(openedDb, STORE_PROGRESS);
+
+      seedingPromise.then(() => resolve(openedDb), fail);
     };
   });
 
   await openPromise;
-  await seedingPromise;
+  if (seedingPromise) await seedingPromise;
 
   return dbInstance;
 }
@@ -59,8 +100,24 @@ export async function openDb() {
 // Safe post-open seeding
 // ----------------------------------------------------------
 function seedDefaults(db, STORE_PROGRESS) {
-  return new Promise(resolve => {
-    const tx = db.transaction(STORE_PROGRESS, "readwrite");
+  return new Promise((resolve, reject) => {
+    let tx;
+
+    try {
+      tx = db.transaction(STORE_PROGRESS, "readwrite");
+    } catch (error) {
+      reject(error);
+      return;
+    }
+
+    tx.onerror = () => {
+      reject(tx.error || new Error("Seeding transaction failed"));
+    };
+
+    tx.onabort = () => {
+      reject(tx.error || new Error("Seeding transaction aborted"));
+    };
+
     const store = tx.objectStore(STORE_PROGRESS);
 
     const defaultExercises = [

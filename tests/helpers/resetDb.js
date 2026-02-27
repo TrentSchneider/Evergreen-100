@@ -13,44 +13,32 @@ export async function resetDb() {
   await deleteDbWithTimeout(DB_NAME);
 }
 
-async function deleteDbWithTimeout(dbName, maxRetries = 3, retryDelay = 100) {
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
+async function deleteDbWithTimeout(
+  dbName,
+  totalTimeout = 2000,
+  retryDelay = 100
+) {
+  const deadline = Date.now() + totalTimeout;
+
+  while (true) {
     const deleted = await new Promise((resolve, reject) => {
       const req = indexedDB.deleteDatabase(dbName);
-      
-      // Successful deletion
-      req.onsuccess = () => {
-        resolve(true);
-      };
-      
-      // Error during deletion
-      req.onerror = () => {
-        reject(req.error);
-      };
-      
-      // Database is blocked - connections still open
-      req.onblocked = () => {
-        // Don't resolve - just note that it's blocked
-        resolve(false);
-      };
+
+      req.onsuccess = () => resolve(true);
+      req.onerror = () => reject(req.error);
+      req.onblocked = () => resolve(false);
     });
-    
+
     if (deleted === true) {
-      return; // Success!
+      return; // success
     }
-    
-    // If blocked, wait and retry
-    if (attempt < maxRetries - 1) {
-      await new Promise(r => setTimeout(r, retryDelay));
+
+    if (Date.now() >= deadline) {
+      throw new Error(
+        `deleteDatabase(${dbName}) remained blocked after ${totalTimeout}ms`
+      );
     }
+
+    await new Promise(resolve => setTimeout(resolve, retryDelay));
   }
-  
-  // If we got here, deletion never succeeded but also never failed
-  // This is the blocked state - try one more time without retrying
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.deleteDatabase(dbName);
-    req.onsuccess = () => resolve();
-    req.onerror = () => reject(req.error);
-    // Give up on onblocked - if it's still blocked, that's a problem with the test setup
-  });
 }

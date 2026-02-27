@@ -122,8 +122,8 @@ export async function snapshotDay(dateStr, values, computeCompletion, callback) 
   const tx = db.transaction(STORE_DAILY_LOGS, "readwrite");
   const store = tx.objectStore(STORE_DAILY_LOGS);
 
-  // Pass values into the compute function
-  const completion = computeCompletion(values);
+  // Compute completion (no args uses defaults: EXERCISES and state.values)
+  const completion = computeCompletion();
 
   const log = {
     date: dateStr,

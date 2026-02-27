@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
 // ---------------------------------------------------------
 // Mock loadStore so state/recovery doesn't hit IndexedDB
@@ -40,6 +40,10 @@ describe("Recovery Integration Tests", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2024-01-01T12:00:00Z"));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("exercise is available on the first day", async () => {

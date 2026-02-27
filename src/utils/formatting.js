@@ -10,7 +10,6 @@ export function formatValue(ex, value) {
     const seconds = value % 60;
     return `${minutes}:${seconds.toString().padStart(2, "0")}`;
   }
-  console.log(ex);
 
   return String(value);
 }
