@@ -1,5 +1,5 @@
 import { EXERCISES, TIERS, EvergreenConfig } from "../data/config.js";
-import { state, setRowExpanded } from "../state/state.js";
+import { state, setRowExpanded, setTierExpanded } from "../state/state.js";
 import { loadStore } from "../state/storage.js";
 import { isAvailable } from "../state/recovery.js";
 import {
@@ -38,6 +38,7 @@ export function renderTiers() {
         ${state.settings.layout.tierExpanded[tier.id] ? "▲" : "▼"}
       </span>
     `;
+    header.addEventListener("click", () => toggleTier(tier.id));
     tierCard.appendChild(header);
 
     // -----------------------------
@@ -126,6 +127,29 @@ export function renderTiers() {
   });
 
   wireRowControls();
+}
+
+// ---------------------------------------------------------
+// Toggle Tier Expanded
+// ---------------------------------------------------------
+
+async function toggleTier(tierId) {
+  const { saveSettings } = await loadStore();
+
+  const expanded = !state.settings.layout.tierExpanded[tierId];
+  setTierExpanded(tierId, expanded);
+
+  saveSettings(state);
+
+  const body = document.getElementById(`tier-body-${tierId}`);
+  if (body) {
+    body.style.maxHeight = expanded ? "1000px" : "0px";
+  }
+
+  const toggle = document.querySelector(`.tier-toggle[data-tier="${tierId}"]`);
+  if (toggle) {
+    toggle.textContent = expanded ? "▲" : "▼";
+  }
 }
 
 // ---------------------------------------------------------
