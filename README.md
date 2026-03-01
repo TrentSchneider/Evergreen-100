@@ -51,3 +51,9 @@ Evergreen 100 is currently in its **proof‑of‑concept phase**, focused on:
 - preparing the foundation for future expansion
 
 As the POC solidifies, the next milestone is a feature‑complete MVP with persistent history, adaptive programming, and a polished user experience.
+
+## Project Management
+
+Issues and project tracking for this repository are managed in a private repository. If you're a contributor and need access, please contact the maintainer.
+
+For contributors: [Internal Issues Repo](https://github.com/TrentSchneider/Evergreen-100-issues)
