@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { state } from "../../src/state/state.js";
-import { EXERCISES } from "../../src/data/config.js";
-import { wireResetButton } from "../../src/ui/reset.js";
+import { state } from "../../../src/state/state.js";
+import { EXERCISES } from "../../../src/data/config.js";
+import { wireResetButton } from "../../../src/ui/reset.js";
 
 // Mock summary + history so reset doesn't touch missing DOM nodes
-vi.mock("../../src/ui/summary.js", () => ({
+vi.mock("../../../src/ui/summary.js", () => ({
   recomputeAndRenderSummary: vi.fn(),
   renderHistory: vi.fn()
 }));

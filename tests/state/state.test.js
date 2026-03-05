@@ -3,6 +3,7 @@ import {
   state,
   setExerciseValue,
   setRowExpanded,
+  setTierExpanded,
   setSettingsExpanded,
   setTheme,
   setLastLogDate,
@@ -42,6 +43,11 @@ describe("state module", () => {
     expect(state.settings.layout.rowExpanded["pushups"]).toBe(true);
   });
 
+  it("sets tier expanded state", () => {
+    setTierExpanded("tier1", true);
+    expect(state.settings.layout.tierExpanded["tier1"]).toBe(true);
+  });
+
   it("sets settings expanded state", () => {
     setSettingsExpanded(true);
     expect(state.settings.layout.settingsExpanded).toBe(true);
@@ -61,6 +67,14 @@ describe("state module", () => {
     incrementStreak();
     incrementStreak();
     expect(state.settings.streak).toBe(2);
+  });
+
+  it("increments streak and updates longest streak", () => {
+    state.settings.longestStreak = 2;
+    state.settings.streak = 2;
+    incrementStreak();
+    expect(state.settings.streak).toBe(3);
+    expect(state.settings.longestStreak).toBe(3);
   });
 
   it("resets streak", () => {

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { initScrollShadows } from "../../src/ui/scrollShadows.js";
+import { initScrollShadows } from "../../../src/ui/scrollShadows.js";
 
 describe("scroll shadows", () => {
   beforeEach(() => {

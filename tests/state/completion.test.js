@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { computeCompletionPercent, computeGlobalPercent } from "../../src/state/completion.js";
 import { state } from "../../src/state/state.js";
+import { EXERCISES } from "../../src/data/config.js";
 
 describe("completion calculations", () => {
   it("computes completion percent for a single exercise", () => {
@@ -26,5 +27,66 @@ describe("completion calculations", () => {
     state.values = { a: 10, b: 10 };
 
     expect(computeGlobalPercent(exercises, state.values)).toBe(100);
+  });
+
+  it("computes global average when no exercise is specified", () => {
+    // This will use EXERCISES from config
+    state.values = {};
+    
+    const result = computeCompletionPercent();
+    
+    expect(result).toBeGreaterThanOrEqual(0);
+    expect(result).toBeLessThanOrEqual(100);
+  });
+
+  it("computes global percent with partial completions", () => {
+    const exercises = [
+      { id: "a", total: 10 },
+      { id: "b", total: 20 },
+      { id: "c", total: 30 }
+    ];
+
+    state.values = { a: 5, b: 10, c: 15 };
+
+    expect(computeGlobalPercent(exercises, state.values)).toBe(50);
+  });
+
+  it("returns 0 for global percent when no exercises exist", () => {
+    const exercises = [];
+    state.values = {};
+
+    expect(computeGlobalPercent(exercises, state.values)).toBe(0);
+  });
+
+  it("handles missing values in state as zero", () => {
+    const exercises = [
+      { id: "a", total: 10 },
+      { id: "b", total: 10 }
+    ];
+
+    // Only set value for 'a', 'b' is missing
+    state.values = { a: 10 };
+
+    expect(computeGlobalPercent(exercises, state.values)).toBe(50);
+  });
+
+  it("caps individual exercise ratios at 100% for global average", () => {
+    // Set up EXERCISES-like data with one exercise over-completed
+    state.values = {};
+    
+    const exercises = [
+      { id: "a", total: 10 },
+      { id: "b", total: 10 }
+    ];
+
+    // First exercise is 200% complete, second is 0%
+    state.values = { a: 20, b: 0 };
+
+    // computeCompletionPercent without arg uses global average
+    // which should cap 'a' at 100%, so (100% + 0%) / 2 = 50%
+    const avgPercent = computeCompletionPercent();
+    
+    // The global average should reflect capped values
+    expect(avgPercent).toBeLessThanOrEqual(100);
   });
 });

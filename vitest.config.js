@@ -8,6 +8,7 @@ export default defineConfig({
 
     environmentMatchGlobs: [
       ["**/ui/**/*.test.js", "jsdom"],
+      ["**/recovery/**/*.test.js", "jsdom"],
       ["**/dom/**/*.test.js", "jsdom"]
     ],
 
@@ -17,8 +18,5 @@ export default defineConfig({
   optimizeDeps: {
     disabled: true
   },
-  environmentMatchGlobs: [
-    ["tests/ui/**/*.test.js", "jsdom"],
-    ["tests/dom/**/*.test.js", "jsdom"]
-  ]
+  watch: false
 });

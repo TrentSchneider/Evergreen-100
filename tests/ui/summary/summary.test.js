@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { initSummaryUI, recomputeAndRenderSummary } from "../../src/ui/summary.js";
-import { state } from "../../src/state/state.js";
-import { EXERCISES } from "../../src/data/config.js";
+import { initSummaryUI, recomputeAndRenderSummary } from "../../../src/ui/summary.js";
+import { state } from "../../../src/state/state.js";
+import { EXERCISES } from "../../../src/data/config.js";
 
 beforeEach(() => {
   document.body.innerHTML = `

@@ -1,9 +1,8 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
-import { state } from "../../src/state/state.js";
-import { EXERCISES, TIERS } from "../../src/data/config.js";
+import { describe, it, expect, beforeEach, beforeAll, vi } from "vitest";
+import { EXERCISES, TIERS } from "../../../src/data/config.js";
 
 // Mock storage
-vi.mock("../../src/state/storage.js", () => ({
+vi.mock("../../../src/state/storage.js", () => ({
   loadStore: () => ({
     saveSettings: vi.fn(),
     saveValue: vi.fn()
@@ -11,11 +10,18 @@ vi.mock("../../src/state/storage.js", () => ({
 }));
 
 // Mock recovery
-vi.mock("../../src/state/recovery.js", () => ({
+vi.mock("../../../src/state/recovery.js", () => ({
   isAvailable: () => Promise.resolve(true)
 }));
 
-import { renderTiers } from "../../src/ui/tiers.js";
+let renderTiers;
+let appState;
+
+beforeAll(async () => {
+  vi.resetModules();
+  ({ state: appState } = await import("../../../src/state/state.js"));
+  ({ renderTiers } = await import("../../../src/ui/tiers.js"));
+});
 
 describe("tiers UI", () => {
   beforeEach(async () => {
@@ -23,7 +29,7 @@ describe("tiers UI", () => {
       <div id="tiers-container"></div>
     `;
 
-    state.settings = {
+    appState.settings = {
       layout: {
         tierExpanded: {},
         rowExpanded: {}
@@ -32,12 +38,12 @@ describe("tiers UI", () => {
 
     // Expand all tiers so rows are clickable
     TIERS.forEach(tier => {
-      state.settings.layout.tierExpanded[tier.id] = true;
+      appState.settings.layout.tierExpanded[tier.id] = true;
     });
 
     // Initialize rowExpanded for all exercises
     EXERCISES.forEach(ex => {
-      state.settings.layout.rowExpanded[ex.id] = false;
+      appState.settings.layout.rowExpanded[ex.id] = false;
     });
 
     await renderTiers();

@@ -7,7 +7,7 @@ import {
   computeNextAvailableDate,
   isExerciseAvailableOnDate,
   getDaysRemaining
-} from "../src/recoveryEngine.js";
+} from "../../src/recoveryEngine.js";
 
 // ---------------------------------------------------------
 // Local Test Config + parseLocalDate

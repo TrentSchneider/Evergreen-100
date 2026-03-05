@@ -39,6 +39,48 @@ describe("progressStore", () => {
     expect(values.push).toBe(10);
   });
 
+  it("saveValue preserves lastCompletedDate when resetting value to zero", async () => {
+    await saveValue("push", 10, () => "2026-02-22");
+    await saveValue("push", 0, () => "2026-02-23");
+
+    await __closeDbInstance?.();
+    __resetDbInstance?.();
+
+    const db = await openDb();
+    const tx = db.transaction("progress", "readonly");
+    const store = tx.objectStore("progress");
+
+    const record = await new Promise(resolve => {
+      const req = store.get("push");
+      req.onsuccess = () => resolve(req.result);
+    });
+
+    expect(record.value).toBe(0);
+    expect(record.lastCompletedDate).toBe("2026-02-22");
+  });
+
+  it("saveValue creates a record when one does not already exist", async () => {
+    await saveValue("new-exercise", 7, () => "2026-02-24");
+
+    await __closeDbInstance?.();
+    __resetDbInstance?.();
+
+    const db = await openDb();
+    const tx = db.transaction(DB_NAME === "evergreen100" ? "progress" : "progress", "readonly");
+    const store = tx.objectStore("progress");
+
+    const record = await new Promise(resolve => {
+      const req = store.get("new-exercise");
+      req.onsuccess = () => resolve(req.result);
+    });
+
+    expect(record).toEqual({
+      id: "new-exercise",
+      value: 7,
+      lastCompletedDate: "2026-02-24"
+    });
+  });
+
   it("loadSettings returns seeded defaults", async () => {
     const state = { settings: { layout: {} } };
     const tiers = [{ id: 1, defaultExpanded: true }];
