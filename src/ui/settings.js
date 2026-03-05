@@ -15,28 +15,38 @@ export async function wireSettingsCard() {
 
   if (!settingsHeader || !settingsBody || !settingsToggle) return;
 
-  // Initial state
-  if (state.settings.layout.settingsExpanded) {
-    settingsBody.classList.remove("hidden");
-    settingsToggle.textContent = "▲";
-  } else {
-    settingsBody.classList.add("hidden");
-    settingsToggle.textContent = "▼";
-  }
+  const applyDrawerState = expanded => {
+    if (expanded) {
+      settingsBody.classList.add("open");
+      settingsBody.setAttribute("aria-hidden", "false");
+      settingsHeader.setAttribute("aria-expanded", "true");
+      settingsToggle.textContent = "▲";
+      settingsBody.style.maxHeight = `${settingsBody.scrollHeight}px`;
+    } else {
+      settingsBody.classList.remove("open");
+      settingsBody.setAttribute("aria-hidden", "true");
+      settingsHeader.setAttribute("aria-expanded", "false");
+      settingsToggle.textContent = "▼";
+      settingsBody.style.maxHeight = "0px";
+    }
+  };
 
-  // Expand / collapse
-  settingsHeader.addEventListener("click", () => {
+  applyDrawerState(state.settings.layout.settingsExpanded);
+
+  const toggleDrawer = () => {
     const expanded = !state.settings.layout.settingsExpanded;
 
     setSettingsExpanded(expanded);
     saveSettings(state);
+    applyDrawerState(expanded);
+  };
 
-    if (expanded) {
-      settingsBody.classList.remove("hidden");
-      settingsToggle.textContent = "▲";
-    } else {
-      settingsBody.classList.add("hidden");
-      settingsToggle.textContent = "▼";
+  settingsHeader.addEventListener("click", toggleDrawer);
+
+  settingsHeader.addEventListener("keydown", event => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      toggleDrawer();
     }
   });
 

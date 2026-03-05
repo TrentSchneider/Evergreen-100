@@ -29,7 +29,11 @@ export function applyTheme() {
 // ---------------------------------------------------------
 export function positionThemeHighlight() {
   const highlight = document.getElementById("theme-highlight");
-  if (!highlight) return;
+  const toggle = document.querySelector(".theme-toggle");
+  if (!highlight || !toggle) return;
+
+  const options = Array.from(toggle.querySelectorAll(".theme-option"));
+  if (!options.length) return;
 
   const mode = state.settings.theme;
   let index = 0;
@@ -37,5 +41,16 @@ export function positionThemeHighlight() {
   if (mode === "light") index = 1;
   if (mode === "dark") index = 2;
 
-  highlight.style.transform = `translateX(${index * 100}%)`;
+  const clampedIndex = Math.min(index, options.length - 1);
+  const target = options[clampedIndex];
+
+  const offset = target.offsetLeft;
+  const width = target.offsetWidth;
+
+  highlight.style.left = `${offset}px`;
+  highlight.style.width = `${width}px`;
 }
+
+window.addEventListener("resize", () => {
+  positionThemeHighlight();
+});

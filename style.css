@@ -166,6 +166,10 @@ body {
   gap: 1rem;
 }
 
+#summary-container.expanded .pill-top {
+  padding-bottom: 1.25rem;
+}
+
 /* Progress bar */
 .pill-progress {
   flex: 1;
@@ -521,23 +525,69 @@ input[type="text"] {
    ========================================================= */
 
 .settings-card {
-  padding: 1.25rem 1.25rem;
+  padding: 0;
+  overflow: hidden;
 }
 
 .settings-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 0.5rem;
   cursor: pointer;
+  padding: 1.25rem 1.25rem;
+  background: var(--surface-alt);
+  border-bottom: 1px solid var(--border);
+  font-weight: 600;
+  user-select: none;
+}
+
+.settings-header:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
 }
 
 .settings-title {
   flex: 1;
-  font-weight: 600;
 }
 
 .settings-body {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+}
+
+.settings-body.open {
+  border-top: 1px solid var(--border);
+}
+
+.settings-body-inner {
+  padding: 1.25rem 1.25rem 1.5rem 1.25rem;
+  background: var(--card);
+}
+
+.setting-section + .setting-section {
   margin-top: 1rem;
+}
+
+.setting-section-header {
+  margin-bottom: 0.75rem;
+}
+
+.setting-section-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.setting-section-description {
+  margin: 0.25rem 0 0;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.setting-section-content {
+  width: 100%;
 }
 
 /* =========================================================
@@ -566,17 +616,20 @@ input[type="text"] {
   font-size: 1rem;
   padding: 0.5rem 0;
   z-index: 1;
+  cursor: pointer;
 }
 
 .theme-highlight {
   position: absolute;
   top: 3px;
   bottom: 3px;
-  width: calc(33.333% - 6px);
+  left: 0;
+  width: 0;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.15);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
-  transition: transform 0.25s ease;
+  transition: left 0.25s ease, width 0.25s ease;
+  pointer-events: none;
 }
 
 /* =========================================================
@@ -719,4 +772,3 @@ input[type="text"] {
 .no-zoom {
   touch-action: manipulation;
 }
-
