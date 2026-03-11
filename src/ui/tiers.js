@@ -13,6 +13,39 @@ import { todayString } from "../utils/dates.js";
 import { recomputeAndRenderSummary } from "./summary.js";
 import { renderHistory } from "./summary.js";
 
+function normalizeTimeInput(text) {
+  const digitsOnly = String(text || "").replace(/\D/g, "");
+  if (!digitsOnly) return "0:00";
+
+  const rawMinutes = digitsOnly.length > 2 ? digitsOnly.slice(0, -2) : "0";
+  const rawSeconds = digitsOnly.slice(-2).padStart(2, "0");
+
+  const minutes = Number(rawMinutes);
+  return `${Number.isFinite(minutes) ? minutes : 0}:${rawSeconds}`;
+}
+
+function selectionTouchesColon(inputEl) {
+  const colonIndex = inputEl.value.indexOf(":");
+  if (colonIndex === -1) return false;
+
+  const start = inputEl.selectionStart ?? 0;
+  const end = inputEl.selectionEnd ?? start;
+  return start <= colonIndex && end > colonIndex;
+}
+
+function isSingleCaretColonDelete(inputEl, key) {
+  const colonIndex = inputEl.value.indexOf(":");
+  if (colonIndex === -1) return false;
+
+  const start = inputEl.selectionStart ?? 0;
+  const end = inputEl.selectionEnd ?? start;
+  if (start !== end) return false;
+
+  if (key === "Backspace") return start === colonIndex + 1;
+  if (key === "Delete") return start === colonIndex;
+  return false;
+}
+
 // ---------------------------------------------------------
 // Render All Tiers & Rows
 // ---------------------------------------------------------
@@ -87,10 +120,15 @@ export function renderTiers() {
         </svg>
       `;
 
+      const inputAttributes =
+        ex.type === "time"
+          ? 'type="text" inputmode="numeric" pattern="[0-9:]*"'
+          : 'type="text" inputmode="numeric" pattern="[0-9]*"';
+
       expanded.innerHTML = `
         <div class="controls">
           <button id="save-${ex.id}" class="save-btn no-zoom">${saveIcon}</button>
-          <input id="input-${ex.id}" type="text" />
+          <input id="input-${ex.id}" ${inputAttributes} />
           <button class="arrow-btn no-zoom" id="inc-${ex.id}">▲</button>
           <button class="arrow-btn no-zoom" id="dec-${ex.id}">▼</button>
         </div>
@@ -295,7 +333,24 @@ async function wireRowControls() {
       });
     });
 
+    if (ex.type === "time") {
+      inputEl.addEventListener("beforeinput", event => {
+        if (!event.inputType || !event.inputType.startsWith("delete")) return;
+        if (!selectionTouchesColon(inputEl)) return;
+        event.preventDefault();
+      });
+
+      inputEl.addEventListener("keydown", event => {
+        if (event.key !== "Backspace" && event.key !== "Delete") return;
+        if (!isSingleCaretColonDelete(inputEl, event.key)) return;
+        event.preventDefault();
+      });
+    }
+
     inputEl.addEventListener("input", () => {
+      if (ex.type === "time") {
+        inputEl.value = normalizeTimeInput(inputEl.value);
+      }
       markDirty();
     });
 

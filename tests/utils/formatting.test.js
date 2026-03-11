@@ -11,6 +11,7 @@ import { EXERCISES } from "../../src/data/config.js";
 
 describe("formatting utilities", () => {
   const ex = EXERCISES[0]; // any exercise works
+  const timeEx = EXERCISES.find(item => item.type === "time");
 
   it("formats values correctly", () => {
     expect(formatValue(ex, 5)).toBe("5");
@@ -44,5 +45,11 @@ describe("formatting utilities", () => {
     expect(completionRatio(ex, 0)).toBe(0);
     expect(completionRatio(ex, ex.total)).toBe(1);
     expect(completionRatio(ex, ex.total * 2)).toBeGreaterThan(1);
+  });
+
+  it("formats and parses time values", () => {
+    expect(formatValue(timeEx, 65)).toBe("1:05");
+    expect(parseValue(timeEx, "1:05")).toBe(65);
+    expect(parseValue(timeEx, "12:30")).toBe(750);
   });
 });

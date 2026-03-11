@@ -37,6 +37,7 @@ import { state } from "../../../src/state/state.js";
 import { EXERCISES, TIERS } from "../../../src/data/config.js";
 
 const exercise = EXERCISES[0];
+const timeExercise = EXERCISES.find(ex => ex.type === "time");
 const tier = TIERS.find(t => t.id === exercise.tier);
 
 const waitForUpdates = () => new Promise(resolve => setTimeout(resolve, 0));
@@ -73,7 +74,13 @@ describe("tier row controls", () => {
     });
 
     EXERCISES.forEach(ex => {
-      state.values[ex.id] = ex.id === exercise.id ? 2 : 0;
+      if (ex.id === exercise.id) {
+        state.values[ex.id] = 2;
+      } else if (ex.id === timeExercise.id) {
+        state.values[ex.id] = 65;
+      } else {
+        state.values[ex.id] = 0;
+      }
       state.settings.layout.rowExpanded[ex.id] = ex.id === exercise.id;
     });
 
@@ -126,5 +133,44 @@ describe("tier row controls", () => {
 
     expect(state.values[exercise.id]).toBe(2);
     expect(saveValueMock).not.toHaveBeenCalled();
+  });
+
+  it("renders mobile numeric hints on count and time inputs", () => {
+    const countInput = document.getElementById(`input-${exercise.id}`);
+    const timeInput = document.getElementById(`input-${timeExercise.id}`);
+
+    expect(countInput.getAttribute("inputmode")).toBe("numeric");
+    expect(countInput.getAttribute("pattern")).toBe("[0-9]*");
+    expect(timeInput.getAttribute("inputmode")).toBe("numeric");
+    expect(timeInput.getAttribute("pattern")).toBe("[0-9:]*");
+  });
+
+  it("keeps time colon locked while allowing digit edits", async () => {
+    const input = document.getElementById(`input-${timeExercise.id}`);
+    const saveBtn = document.getElementById(`save-${timeExercise.id}`);
+
+    expect(input.value).toBe("1:05");
+
+    input.setSelectionRange(2, 2);
+    const keydown = new KeyboardEvent("keydown", {
+      key: "Backspace",
+      bubbles: true,
+      cancelable: true
+    });
+    input.dispatchEvent(keydown);
+    expect(keydown.defaultPrevented).toBe(true);
+
+    input.value = "930";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(input.value).toBe("9:30");
+    expect(saveBtn.style.display).toBe("inline-flex");
+
+    saveBtn.click();
+    await Promise.resolve();
+    await Promise.resolve();
+    await waitForUpdates();
+
+    expect(state.values[timeExercise.id]).toBe(570);
+    expect(saveBtn.style.display).toBe("none");
   });
 });
