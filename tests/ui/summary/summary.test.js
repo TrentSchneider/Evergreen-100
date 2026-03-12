@@ -1,7 +1,14 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { initSummaryUI, recomputeAndRenderSummary } from "../../../src/ui/summary.js";
 import { state } from "../../../src/state/state.js";
 import { EXERCISES } from "../../../src/data/config.js";
+
+// Mock the recovery state module
+vi.mock("../../../src/state/recovery.js", () => ({
+  isAvailable: vi.fn()
+}));
+
+import { isAvailable } from "../../../src/state/recovery.js";
 
 beforeEach(() => {
   document.body.innerHTML = `
@@ -16,6 +23,7 @@ beforeEach(() => {
 
   state.values = {};
   EXERCISES.forEach(ex => (state.values[ex.id] = 0));
+  vi.clearAllMocks();
 });
 
 describe("summary UI", () => {
@@ -23,11 +31,104 @@ describe("summary UI", () => {
     expect(() => initSummaryUI()).not.toThrow();
   });
 
-  it("updates percent display", () => {
+  it("updates percent display when all exercises are available", async () => {
     initSummaryUI();
-    recomputeAndRenderSummary();
+    
+    // Mock all exercises as available
+    isAvailable.mockResolvedValue(true);
+    
+    await recomputeAndRenderSummary();
 
     const pct = document.querySelector(".pill-percent").textContent;
     expect(pct).toBe("0%");
+  });
+
+  it("excludes recovering exercises from global completion percentage", async () => {
+    initSummaryUI();
+    
+    // Initialize all exercises to 0
+    EXERCISES.forEach(ex => {
+      state.values[ex.id] = 0;
+    });
+    
+    // Complete only the first available exercise
+    state.values[EXERCISES[0].id] = EXERCISES[0].total; // 100%
+    
+    // First exercise is available, all others are recovering
+    isAvailable.mockImplementation(async (ex) => {
+      return ex.id === EXERCISES[0].id;
+    });
+    
+    await recomputeAndRenderSummary();
+
+    const pct = document.querySelector(".pill-percent").textContent;
+    const percentValue = parseInt(pct);
+    
+    // Should be 100% (only first exercise counts, and it's complete)
+    expect(percentValue).toBe(100);
+  });
+
+  it("shows individual exercise progress for both available and recovering exercises", async () => {
+    initSummaryUI();
+    
+    const allExercises = EXERCISES.map((ex, idx) => ex);
+    state.values[allExercises[0].id] = allExercises[0].total;
+    state.values[allExercises[1].id] = allExercises[1].total / 2;
+    
+    // First is available, second is recovering
+    isAvailable.mockImplementation(async (ex) => {
+      return ex.id !== allExercises[1].id;
+    });
+    
+    await recomputeAndRenderSummary();
+
+    const drawerContent = document.getElementById("summary-drawer-content");
+    const summaryRows = drawerContent.querySelectorAll(".summary-row");
+    
+    // All exercises should still be shown in drawer
+    expect(summaryRows.length).toBe(allExercises.length);
+  });
+
+  it("sets global percent to 0 when all exercises are recovering", async () => {
+    initSummaryUI();
+    
+    // Set all exercises to completed
+    EXERCISES.forEach(ex => {
+      state.values[ex.id] = ex.total;
+    });
+    
+    // But all are recovering
+    isAvailable.mockResolvedValue(false);
+    
+    await recomputeAndRenderSummary();
+
+    const pct = document.querySelector(".pill-percent").textContent;
+    expect(pct).toBe("0%");
+  });
+
+  it("handles mixed availability - some available, some recovering", async () => {
+    initSummaryUI();
+    
+    const allExercises = EXERCISES.map((ex, idx) => ex);
+    
+    // Complete first exercise
+    state.values[allExercises[0].id] = allExercises[0].total;
+    // Half-complete other exercises
+    allExercises.slice(1).forEach(ex => {
+      state.values[ex.id] = ex.total / 2;
+    });
+    
+    // First is available, others are recovering
+    isAvailable.mockImplementation(async (ex) => {
+      return ex.id === allExercises[0].id;
+    });
+    
+    await recomputeAndRenderSummary();
+
+    const pct = document.querySelector(".pill-percent").textContent;
+    const percentValue = parseInt(pct);
+    
+    // Only first exercise counts at 100%
+    expect(percentValue).toBe(100);
   });
 });

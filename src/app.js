@@ -71,7 +71,7 @@ async function renderAll() {
           renderTiers();
           wireSettingsCard();
           wireResetButton();
-          recomputeAndRenderSummary();
+          await recomputeAndRenderSummary();
           renderHistory();
         }
       );
@@ -84,7 +84,7 @@ async function renderAll() {
     renderTiers();
     wireSettingsCard();
     wireResetButton();
-    recomputeAndRenderSummary();
+    await recomputeAndRenderSummary();
     renderHistory();
   });
 }

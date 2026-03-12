@@ -3,7 +3,7 @@ import { state } from "../../../src/state/state.js";
 import { EXERCISES } from "../../../src/data/config.js";
 
 vi.mock("../../../src/ui/summary.js", () => ({
-  recomputeAndRenderSummary: vi.fn(),
+  recomputeAndRenderSummary: vi.fn(async () => {}),
   renderHistory: vi.fn()
 }));
 
@@ -55,17 +55,21 @@ describe("reset overlay interactions", () => {
     expect(overlay.classList.contains("hidden")).toBe(true);
   });
 
-  it("shakes trigger and closes after confirm", () => {
+  it("shakes trigger and closes after confirm", async () => {
     const trigger = document.querySelector('[data-reset="trigger"]');
     const overlay = document.querySelector('[data-reset="overlay"]');
 
     trigger.click();
-    document.querySelector('[data-reset="confirm"]').click();
+    const confirmBtn = document.querySelector('[data-reset="confirm"]');
+    confirmBtn.click();
 
     expect(trigger.classList.contains("shake")).toBe(true);
     vi.advanceTimersByTime(400);
     expect(trigger.classList.contains("shake")).toBe(false);
 
+    // Wait for async handlers to complete
+    await vi.runAllTimersAsync();
+    
     expect(overlay.classList.contains("visible")).toBe(false);
     vi.advanceTimersByTime(250);
     expect(overlay.classList.contains("hidden")).toBe(true);

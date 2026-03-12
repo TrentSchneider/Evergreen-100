@@ -1,9 +1,10 @@
 import { EXERCISES } from "../data/config.js";
 import { state } from "../state/state.js";
-import { computeCompletionPercent } from "../state/completion.js";
+import { computeCompletionPercent, computeGlobalPercent } from "../state/completion.js";
 import { completionRatio } from "../utils/formatting.js";
 import { formatHistoryDate } from "../utils/dates.js";
 import { loadStore } from "../state/storage.js";
+import { isAvailable } from "../state/recovery.js";
 
 // ---------------------------------------------------------
 // DOM References
@@ -102,9 +103,26 @@ export async function renderHistory() {
 // Summary Rendering
 // ---------------------------------------------------------
 
-export function recomputeAndRenderSummary() {
-  const globalPercent = computeCompletionPercent();
+export async function recomputeAndRenderSummary() {
+  // Check availability for all exercises in parallel
+  const availabilityMap = await Promise.all(
+    EXERCISES.map(async ex => ({
+      id: ex.id,
+      available: await isAvailable(ex)
+    }))
+  );
 
+  // Filter to only available exercises for global percent calculation
+  const availableExercises = EXERCISES.filter(ex =>
+    availabilityMap.find(a => a.id === ex.id)?.available
+  );
+
+  // Calculate global percent using only available exercises
+  const globalPercent = availableExercises.length > 0
+    ? computeGlobalPercent(availableExercises, state.values)
+    : 0;
+
+  // Summary for all exercises (even recovering ones show their progress)
   const exercisesSummary = EXERCISES.map(ex => ({
     name: ex.name,
     percent: completionRatio(ex, state.values[ex.id] || 0) * 100

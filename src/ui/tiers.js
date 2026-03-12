@@ -147,13 +147,20 @@ export function renderTiers() {
       setTimeout(async () => {
         const available = await isAvailable(ex);
         const value = state.values[ex.id] || 0;
+        const compactValueEl = document.getElementById(`compact-${ex.id}`);
 
         row.classList.remove("loading");
 
         if (!available) {
           row.classList.add("resting");
+          if (compactValueEl) {
+            compactValueEl.textContent = "Recovering";
+          }
         } else {
           row.classList.remove("resting");
+          if (compactValueEl) {
+            compactValueEl.textContent = `${formatValue(ex, value)} / ${formatTotal(ex)}`;
+          }
         }
 
         row.classList.add(completionClass(ex, value));
@@ -248,9 +255,9 @@ async function adjust(ex, delta) {
 
   state.values[ex.id] = value;
 
-  saveValue(ex.id, value, todayString, () => {
+  saveValue(ex.id, value, todayString, async () => {
     updateRowUI(ex);
-    recomputeAndRenderSummary();
+    await recomputeAndRenderSummary();
     renderHistory();
   });
 }
@@ -361,9 +368,9 @@ async function wireRowControls() {
       const parsed = parseValue(ex, inputEl.value);
       state.values[ex.id] = parsed;
 
-      saveValue(ex.id, parsed, todayString, () => {
+      saveValue(ex.id, parsed, todayString, async () => {
         updateRowUI(ex);
-        recomputeAndRenderSummary();
+        await recomputeAndRenderSummary();
         renderHistory();
         clearDirty();
       });

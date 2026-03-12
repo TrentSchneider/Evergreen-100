@@ -32,7 +32,7 @@ export async function wireResetButton() {
   });
 
   // Confirm reset
-  confirmBtn.addEventListener("click", () => {
+  confirmBtn.addEventListener("click", async () => {
     // Shake animation on trigger
     const t = document.querySelector('[data-reset="trigger"]');
     if (t) {
@@ -48,7 +48,7 @@ export async function wireResetButton() {
     });
 
     // Re-render summary + history
-    recomputeAndRenderSummary();
+    await recomputeAndRenderSummary();
     renderHistory();
 
     // Close overlay
