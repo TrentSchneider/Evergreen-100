@@ -5,11 +5,18 @@ import { todayString } from "../utils/dates.js";
 import { recomputeAndRenderSummary, renderHistory } from "./summary.js";
 import { formatValue, formatTotal, remaining, completionClass } from "../utils/formatting.js";
 
+let resetCleanup = null;
+
 // ---------------------------------------------------------
 // Wire Reset Button & Overlay
 // ---------------------------------------------------------
 
 export async function wireResetButton() {
+  if (resetCleanup) {
+    resetCleanup();
+    resetCleanup = null;
+  }
+
   const { saveValue } = await loadStore();
 
   const trigger = document.querySelector('[data-reset="trigger"]');
@@ -19,20 +26,17 @@ export async function wireResetButton() {
 
   if (!trigger || !overlay || !cancelBtn || !confirmBtn) return;
 
-  // Open overlay
-  trigger.addEventListener("click", () => {
+  const onOpen = () => {
     overlay.classList.remove("hidden");
     overlay.classList.add("visible");
-  });
+  };
 
-  // Cancel overlay
-  cancelBtn.addEventListener("click", () => {
+  const onCancel = () => {
     overlay.classList.remove("visible");
     setTimeout(() => overlay.classList.add("hidden"), 250);
-  });
+  };
 
-  // Confirm reset
-  confirmBtn.addEventListener("click", async () => {
+  const onConfirm = async () => {
     // Shake animation on trigger
     const t = document.querySelector('[data-reset="trigger"]');
     if (t) {
@@ -54,7 +58,17 @@ export async function wireResetButton() {
     // Close overlay
     overlay.classList.remove("visible");
     setTimeout(() => overlay.classList.add("hidden"), 250);
-  });
+  };
+
+  trigger.addEventListener("click", onOpen);
+  cancelBtn.addEventListener("click", onCancel);
+  confirmBtn.addEventListener("click", onConfirm);
+
+  resetCleanup = () => {
+    trigger.removeEventListener("click", onOpen);
+    cancelBtn.removeEventListener("click", onCancel);
+    confirmBtn.removeEventListener("click", onConfirm);
+  };
 }
 
 // ---------------------------------------------------------

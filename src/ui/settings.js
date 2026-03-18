@@ -2,11 +2,18 @@ import { state, setSettingsExpanded, setTheme } from "../state/state.js";
 import { loadStore } from "../state/storage.js";
 import { applyTheme } from "./theme.js";
 
+let settingsCleanup = null;
+
 // ---------------------------------------------------------
 // Wire Settings Card
 // ---------------------------------------------------------
 
 export async function wireSettingsCard() {
+  if (settingsCleanup) {
+    settingsCleanup();
+    settingsCleanup = null;
+  }
+
   const { saveSettings } = await loadStore();
 
   const settingsHeader = document.querySelector(".settings-header");
@@ -41,23 +48,36 @@ export async function wireSettingsCard() {
     applyDrawerState(expanded);
   };
 
-  settingsHeader.addEventListener("click", toggleDrawer);
-
-  settingsHeader.addEventListener("keydown", event => {
+  const onHeaderKeydown = event => {
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
       toggleDrawer();
     }
-  });
+  };
+
+  settingsHeader.addEventListener("click", toggleDrawer);
+
+  settingsHeader.addEventListener("keydown", onHeaderKeydown);
 
   // Theme selection buttons
-  document.querySelectorAll(".theme-option").forEach(btn => {
-    btn.addEventListener("click", () => {
-      const mode = btn.dataset.theme;
+  const themeButtons = Array.from(document.querySelectorAll(".theme-option"));
+  const onThemeClick = event => {
+    const mode = event.currentTarget.dataset.theme;
 
-      setTheme(mode);
-      saveSettings(state);
-      applyTheme();
-    });
+    setTheme(mode);
+    saveSettings(state);
+    applyTheme();
+  };
+
+  themeButtons.forEach(btn => {
+    btn.addEventListener("click", onThemeClick);
   });
+
+  settingsCleanup = () => {
+    settingsHeader.removeEventListener("click", toggleDrawer);
+    settingsHeader.removeEventListener("keydown", onHeaderKeydown);
+    themeButtons.forEach(btn => {
+      btn.removeEventListener("click", onThemeClick);
+    });
+  };
 }
