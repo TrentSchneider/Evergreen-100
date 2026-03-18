@@ -72,7 +72,8 @@ describe("app bootstrap", () => {
 
     vi.doMock("../../../src/data/config.js", () => ({
       EXERCISES: [{ id: "push", name: "Push" }],
-      TIERS: [{ id: 1, defaultExpanded: true }]
+      TIERS: [{ id: 1, defaultExpanded: true }],
+      EvergreenConfig: { exercises: {} }
     }));
 
     vi.doMock("../../../src/utils/dates.js", () => ({
@@ -142,7 +143,7 @@ describe("app bootstrap", () => {
     const getAllValues = vi.fn().mockResolvedValue({ push: 12, pull: 8 });
     const saveSettings = vi.fn().mockResolvedValue(undefined);
     const saveValue = vi.fn().mockResolvedValue(undefined);
-    const snapshotDay = vi.fn((date, values, compute, callback) => callback(100));
+    const snapshotDay = vi.fn((date, values, compute, config, callback) => callback(100));
     const loadSettings = vi.fn((state, tiers, callback) => callback());
 
     const setAllExerciseValues = vi.fn();
@@ -200,7 +201,8 @@ describe("app bootstrap", () => {
         { id: "push", name: "Push" },
         { id: "pull", name: "Pull" }
       ],
-      TIERS: [{ id: 1, defaultExpanded: true }]
+      TIERS: [{ id: 1, defaultExpanded: true }],
+      EvergreenConfig: { exercises: {} }
     }));
 
     vi.doMock("../../../src/utils/dates.js", () => ({
@@ -243,6 +245,7 @@ describe("app bootstrap", () => {
       "2026-03-03",
       appState.values,
       expect.any(Function),
+      expect.any(Object),
       expect.any(Function)
     );
 
@@ -326,7 +329,8 @@ describe("app bootstrap", () => {
 
     vi.doMock("../../../src/data/config.js", () => ({
       EXERCISES: [{ id: "push", name: "Push" }],
-      TIERS: [{ id: 1, defaultExpanded: true }]
+      TIERS: [{ id: 1, defaultExpanded: true }],
+      EvergreenConfig: { exercises: {} }
     }));
 
     vi.doMock("../../../src/utils/dates.js", () => ({
@@ -387,7 +391,7 @@ describe("app bootstrap", () => {
     const getAllValues = vi.fn().mockResolvedValue({ push: 2, pull: 1 });
     const saveSettings = vi.fn().mockResolvedValue(undefined);
     const saveValue = vi.fn().mockResolvedValue(undefined);
-    const snapshotDay = vi.fn((date, values, compute, callback) => callback(65));
+    const snapshotDay = vi.fn((date, values, compute, config, callback) => callback(65));
     const loadSettings = vi.fn((state, tiers, callback) => callback());
 
     const setAllExerciseValues = vi.fn();
@@ -445,7 +449,8 @@ describe("app bootstrap", () => {
         { id: "push", name: "Push" },
         { id: "pull", name: "Pull" }
       ],
-      TIERS: [{ id: 1, defaultExpanded: true }]
+      TIERS: [{ id: 1, defaultExpanded: true }],
+      EvergreenConfig: { exercises: {} }
     }));
 
     vi.doMock("../../../src/utils/dates.js", () => ({

@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { resetDb } from "../../helpers/resetDb.js";
 import { openDb, __resetDbInstance } from "../../../src/db/openDb.js";
 import * as schemaModule from "../../../src/db/schema.js";
+import { loadStressHistory } from "../../../src/db/progressStore.js";
 
 const schemaOverrideConfig = vi.hoisted(() => ({ override: null }));
 
@@ -44,6 +45,60 @@ function withTimeout(promise, timeoutMs, message) {
       timer = setTimeout(() => reject(new Error(message)), timeoutMs);
     })
   ]).finally(() => clearTimeout(timer));
+}
+
+function createMainStyleV3Db() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, 3);
+
+    req.onupgradeneeded = () => {
+      const db = req.result;
+
+      if (!db.objectStoreNames.contains("progress")) {
+        db.createObjectStore("progress", { keyPath: "id" });
+      }
+      if (!db.objectStoreNames.contains("daily_logs")) {
+        db.createObjectStore("daily_logs", { keyPath: "date" });
+      }
+    };
+
+    req.onerror = () => reject(req.error);
+
+    req.onsuccess = () => {
+      const db = req.result;
+      const tx = db.transaction(["progress", "daily_logs"], "readwrite");
+
+      tx.objectStore("progress").put({ id: "push", value: 12 });
+      tx.objectStore("progress").put({
+        id: "settings",
+        value: {
+          theme: "auto",
+          layout: {
+            settingsExpanded: false,
+            tierExpanded: {},
+            rowExpanded: {}
+          },
+          lastLogDate: "2026-02-01",
+          streak: 2,
+          longestStreak: 2
+        }
+      });
+
+      // Legacy V3 shape: no stressLogs field.
+      tx.objectStore("daily_logs").put({
+        date: "2026-02-01",
+        values: { push: 12 },
+        completion: 48
+      });
+
+      tx.oncomplete = () => {
+        db.close();
+        resolve();
+      };
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error || new Error("Legacy seed tx aborted"));
+    };
+  });
 }
 
 describe("openDb.migration", () => {
@@ -152,7 +207,35 @@ describe("openDb.migration", () => {
 
     mockedReset();
     vi.resetModules();
+    vi.doUnmock("../../../src/db/schema.js");
     schemaOverrideConfig.override = null;
     await deleteDatabase(customName);
+  });
+
+  it("migrates a main-style V3 database to current schema without data loss", async () => {
+    await createMainStyleV3Db();
+    __resetDbInstance();
+
+    const db = await openDb();
+
+    expect(db.version).toBe(DB_VERSION);
+
+    const progressTx = db.transaction(STORE_PROGRESS, "readonly");
+    const progressStore = progressTx.objectStore(STORE_PROGRESS);
+
+    expect(progressStore.indexNames.contains("byLastCompletedDate")).toBe(true);
+
+    const push = await readRecord(db, STORE_PROGRESS, "push");
+    expect(push).toBeTruthy();
+    expect(push.value).toBe(12);
+
+    await new Promise(resolve => {
+      loadStressHistory(history => {
+        expect(history).toHaveLength(1);
+        expect(history[0].exId).toBe("push");
+        expect(history[0].date).toBe("2026-02-01");
+        resolve();
+      });
+    });
   });
 });

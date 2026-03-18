@@ -8,20 +8,25 @@ import { loadStore } from "./storage.js";
 // Recovery Engine Integration
 // ---------------------------------------------------------
 
-// Check if an exercise is available today based on recovery rules
-export async function isAvailable(ex) {
-  const { loadHistory } = await loadStore();
+/**
+ * Is an exercise available today?
+ */
+export async function isAvailable(exerciseId) {
+  const store = await loadStore();
+  const loadHistory = store.loadStressHistory || store.loadHistory;
   const { isExerciseAvailableOnDate } = await import("../recoveryEngine.js");
+
+  const exId = typeof exerciseId === "string" ? exerciseId : exerciseId?.id;
 
   return new Promise(resolve => {
     loadHistory(history => {
       const today = todayString();
-
-      // Recovery is based on *previous* completions, not today's
-      const filtered = history.filter(h => h.date !== today);
+      const filtered = history.filter(
+        h => String(h.date).slice(0, 10) !== today
+      );
 
       const available = isExerciseAvailableOnDate(
-        ex.id,
+        exId,
         today,
         filtered,
         EvergreenConfig
@@ -32,24 +37,74 @@ export async function isAvailable(ex) {
   });
 }
 
-// Get number of days remaining before an exercise becomes available
-export async function daysRemaining(ex) {
-  const { loadHistory } = await loadStore();
+/**
+ * Days remaining until an exercise is available.
+ */
+export async function daysRemaining(exerciseId) {
+  const store = await loadStore();
+  const loadHistory = store.loadStressHistory || store.loadHistory;
   const { getDaysRemaining } = await import("../recoveryEngine.js");
+
+  const exId = typeof exerciseId === "string" ? exerciseId : exerciseId?.id;
 
   return new Promise(resolve => {
     loadHistory(history => {
       const today = todayString();
-      const filtered = history.filter(h => h.date !== today);
-
-      const days = getDaysRemaining(
-        ex.id,
-        today,
-        filtered,
-        EvergreenConfig
+      const filtered = history.filter(
+        h => String(h.date).slice(0, 10) !== today
       );
 
+      const days = getDaysRemaining(exId, today, filtered, EvergreenConfig);
+
       resolve(days);
+    });
+  });
+}
+
+/**
+ * Get detailed tissue blocking info.
+ * Useful for UI: "Chest still recovering 3 days"
+ */
+export async function getBlockedTissues(exerciseId) {
+  const store = await loadStore();
+  const loadHistory = store.loadStressHistory || store.loadHistory;
+  const { getBlockedTissues } = await import("../recoveryEngine.js");
+
+  const exId = typeof exerciseId === "string" ? exerciseId : exerciseId?.id;
+
+  return new Promise(resolve => {
+    loadHistory(history => {
+      const today = todayString();
+      const filtered = history.filter(
+        h => String(h.date).slice(0, 10) !== today
+      );
+
+      const blocked = getBlockedTissues(exId, today, filtered, EvergreenConfig);
+
+      resolve(blocked);
+    });
+  });
+}
+
+/**
+ * Get region-level readiness (scaffolding for future UI).
+ * Example: { upper: 0.65, core: 0.8, lower: 0.3 }
+ */
+export async function getRegionReadiness() {
+  const store = await loadStore();
+  const loadHistory = store.loadStressHistory || store.loadHistory;
+  const { computeRegionReadiness } = await import("../recoveryEngine.js");
+
+  return new Promise(resolve => {
+    loadHistory(history => {
+      const today = todayString();
+      const filtered = history.filter(
+        h => String(h.date).slice(0, 10) !== today
+      );
+
+      const regions = computeRegionReadiness(today, filtered, EvergreenConfig);
+
+      resolve(regions);
     });
   });
 }

@@ -2,6 +2,8 @@
 // Evergreen 100 — DB Open Wrapper
 // =========================================================
 
+import { EvergreenConfig } from "../data/config.js";
+
 async function loadSchema() {
   try {
     const schema = await import("./schema.js");
@@ -22,8 +24,7 @@ let openPromise = null;
 let allConnections = new Set();
 
 export async function openDb() {
-  const { DB_NAME, DB_VERSION, migrateFrom, STORE_PROGRESS } =
-    await loadSchema();
+  const { DB_NAME, DB_VERSION, migrateFrom, STORE_PROGRESS } = await loadSchema();
 
   if (dbInstance && dbInstance.name !== DB_NAME) {
     __resetDbInstance();
@@ -45,11 +46,8 @@ export async function openDb() {
           openedDb.close();
         } catch (_) {}
         allConnections.delete(openedDb);
-        if (dbInstance === openedDb) {
-          dbInstance = null;
-        }
+        if (dbInstance === openedDb) dbInstance = null;
       }
-
       openPromise = null;
       seedingPromise = null;
       reject(error);
@@ -61,9 +59,8 @@ export async function openDb() {
       migrateFrom(event.oldVersion, db, tx);
     };
 
-    req.onerror = () => {
+    req.onerror = () =>
       fail(req.error || new Error("Failed to open IndexedDB"));
-    };
 
     req.onsuccess = () => {
       openedDb = req.result;
@@ -74,9 +71,7 @@ export async function openDb() {
         try {
           openedDb.close();
         } catch (_) {}
-
         allConnections.delete(openedDb);
-
         if (dbInstance === openedDb) {
           dbInstance = null;
           openPromise = null;
@@ -85,7 +80,6 @@ export async function openDb() {
       };
 
       seedingPromise = seedDefaults(openedDb, STORE_PROGRESS);
-
       seedingPromise.then(() => resolve(openedDb), fail);
     };
   });
@@ -110,26 +104,17 @@ function seedDefaults(db, STORE_PROGRESS) {
       return;
     }
 
-    tx.onerror = () => {
+    tx.onerror = () =>
       reject(tx.error || new Error("Seeding transaction failed"));
-    };
-
-    tx.onabort = () => {
+    tx.onabort = () =>
       reject(tx.error || new Error("Seeding transaction aborted"));
-    };
 
     const store = tx.objectStore(STORE_PROGRESS);
 
-    const defaultExercises = [
-      "push",
-      "pull",
-      "core",
-      "legs",
-      "grip",
-      "utility"
-    ];
+    // Seed progress entries for every exercise
+    const exerciseIds = Object.keys(EvergreenConfig.exercises);
 
-    defaultExercises.forEach(id => {
+    exerciseIds.forEach(id => {
       store.get(id).onsuccess = e => {
         if (!e.target.result) {
           store.add({ id, value: 0, lastCompletedDate: null });
@@ -137,6 +122,7 @@ function seedDefaults(db, STORE_PROGRESS) {
       };
     });
 
+    // Seed settings
     store.get("settings").onsuccess = e => {
       if (!e.target.result) {
         store.add({

@@ -19,24 +19,37 @@ import {
 
 import { isAvailable, daysRemaining } from "../../src/state/recovery.js";
 
-import { EXERCISES } from "../../src/data/config.js";
-
 // ---------------------------------------------------------
-// Local test config (same shape as real config)
+// Local test config (proportional model, 1–10 scale)
 // ---------------------------------------------------------
 const TestRecoveryConfig = {
-  recoveryRankMax: 5,
-  recoveryTypes: {
+  recoveryRankMax: 10,
+  tissueTypes: {
     muscle: { baseDays: 0 },
     tendon: { baseDays: 1 },
     ligament: { baseDays: 2 }
+  },
+  tissues: [
+    { id: "test_tendon", type: "tendon", region: "upper" },
+    { id: "test_ligament", type: "ligament", region: "upper" }
+  ],
+  exercises: {
+    tendonOnly: {
+      tissues: [{ id: "test_tendon", rank: 3 }]
+    },
+    ligamentOnly: {
+      tissues: [{ id: "test_ligament", rank: 3 }]
+    },
+    multi: {
+      tissues: [
+        { id: "test_tendon", rank: 3 },
+        { id: "test_ligament", rank: 3 }
+      ]
+    }
   }
 };
 
-describe("Recovery Integration Tests", () => {
-  const ex = EXERCISES[0];
-  const exId = ex.id;
-
+describe("Recovery Integration Tests (Proportional Model)", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2024-01-01T12:00:00Z"));
@@ -46,79 +59,142 @@ describe("Recovery Integration Tests", () => {
     vi.useRealTimers();
   });
 
-  it("exercise is available on the first day", async () => {
-    const today = "2024-01-01";
+  // ---------------------------------------------------------
+  // Tendon-only exercise (rank 3 → 0.45 day cooldown)
+  // ---------------------------------------------------------
+  it("tendon-only exercise is available next day", () => {
+    const history = [
+      {
+        exId: "tendonOnly",
+        date: "2024-01-01",
+        tissues: [{ id: "test_tendon", rank: 3 }]
+      }
+    ];
 
-    const engineAvailable = isExerciseAvailableOnDate(
-      exId,
-      today,
-      [], // no history
-      TestRecoveryConfig
-    );
+    // Same day → blocked
+    expect(
+      isExerciseAvailableOnDate(
+        "tendonOnly",
+        "2024-01-01",
+        history,
+        TestRecoveryConfig
+      )
+    ).toBe(false);
 
-    const stateAvailable = await isAvailable(ex);
+    // Next day → fully recovered (0.45 days cooldown)
+    vi.setSystemTime(new Date("2024-01-02T12:00:00Z"));
+    const dayTwo = new Date().toISOString().slice(0, 10);
 
-    expect(engineAvailable).toBe(true);
+    expect(
+      isExerciseAvailableOnDate(
+        "tendonOnly",
+        dayTwo,
+        history,
+        TestRecoveryConfig
+      )
+    ).toBe(true);
+  });
+
+  // ---------------------------------------------------------
+  // Ligament-only exercise (rank 3 → 1.2 day cooldown)
+  // ---------------------------------------------------------
+  it("ligament-only exercise is still blocked next day", () => {
+    const history = [
+      {
+        exId: "ligamentOnly",
+        date: "2024-01-01",
+        tissues: [{ id: "test_ligament", rank: 3 }]
+      }
+    ];
+
+    // Next day → readiness = 1 / 1.2 = 0.83 → still blocked
+    vi.setSystemTime(new Date("2024-01-02T12:00:00Z"));
+    const dayTwo = new Date().toISOString().slice(0, 10);
+
+    expect(
+      isExerciseAvailableOnDate(
+        "ligamentOnly",
+        dayTwo,
+        history,
+        TestRecoveryConfig
+      )
+    ).toBe(false);
+  });
+
+  it("ligament-only exercise becomes available two days later", () => {
+    const history = [
+      {
+        exId: "ligamentOnly",
+        date: "2024-01-01",
+        tissues: [{ id: "test_ligament", rank: 3 }]
+      }
+    ];
+
+    // Two days later → readiness = 2 / 1.2 = 1.66 → available
+    vi.setSystemTime(new Date("2024-01-03T12:00:00Z"));
+    const dayThree = new Date().toISOString().slice(0, 10);
+
+    expect(
+      isExerciseAvailableOnDate(
+        "ligamentOnly",
+        dayThree,
+        history,
+        TestRecoveryConfig
+      )
+    ).toBe(true);
+  });
+
+  // ---------------------------------------------------------
+  // Multi-tissue exercise (tendon + ligament)
+  // ---------------------------------------------------------
+  it("multi-tissue exercise is blocked next day due to ligament", () => {
+    const history = [
+      {
+        exId: "multi",
+        date: "2024-01-01",
+        tissues: [
+          { id: "test_tendon", rank: 3 },
+          { id: "test_ligament", rank: 3 }
+        ]
+      }
+    ];
+
+    vi.setSystemTime(new Date("2024-01-02T12:00:00Z"));
+    const dayTwo = new Date().toISOString().slice(0, 10);
+
+    expect(
+      isExerciseAvailableOnDate("multi", dayTwo, history, TestRecoveryConfig)
+    ).toBe(false);
+  });
+
+  it("multi-tissue exercise becomes available two days later", () => {
+    const history = [
+      {
+        exId: "multi",
+        date: "2024-01-01",
+        tissues: [
+          { id: "test_tendon", rank: 3 },
+          { id: "test_ligament", rank: 3 }
+        ]
+      }
+    ];
+
+    vi.setSystemTime(new Date("2024-01-03T12:00:00Z"));
+    const dayThree = new Date().toISOString().slice(0, 10);
+
+    expect(
+      isExerciseAvailableOnDate("multi", dayThree, history, TestRecoveryConfig)
+    ).toBe(true);
+  });
+
+  // ---------------------------------------------------------
+  // State wrapper behavior
+  // ---------------------------------------------------------
+  it("state wrapper always reports available with empty mocked history", async () => {
+    const stateExercise = { id: "tendonOnly" };
+
+    const stateAvailable = await isAvailable(stateExercise);
+
     expect(stateAvailable).toBe(true);
-  });
-
-  it("exercise becomes unavailable after exceeding threshold", () => {
-    const today = "2024-01-01";
-
-    const history = [{ exId, type: "tendon", rank: 3, date: "2024-01-01" }];
-
-    const remaining = getDaysRemaining(
-      exId,
-      today,
-      history,
-      TestRecoveryConfig
-    );
-
-    expect(remaining).toBeGreaterThan(0);
-  });
-
-  it("exercise becomes available again after recovery days pass", () => {
-    const today = "2024-01-01";
-
-    const history = [{ exId, type: "tendon", rank: 3, date: "2024-01-01" }];
-
-    const days = getDaysRemaining(exId, today, history, TestRecoveryConfig);
-
-    // advance time by cooldown days
-    vi.setSystemTime(
-      new Date("2024-01-01T12:00:00Z").getTime() + days * 86400000
-    );
-
-    const newDate = new Date().toISOString().slice(0, 10);
-
-    const available = isExerciseAvailableOnDate(
-      exId,
-      newDate,
-      history,
-      TestRecoveryConfig
-    );
-
-    expect(available).toBe(true);
-  });
-
-  it("state wrapper returns correct daysRemaining", async () => {
-    const today = "2024-01-01";
-
-    const history = [{ exId, type: "tendon", rank: 3, date: "2024-01-01" }];
-
-    const engineDays = getDaysRemaining(
-      exId,
-      today,
-      history,
-      TestRecoveryConfig
-    );
-
-    const stateDays = await daysRemaining(ex);
-
-    // state wrapper always sees empty history (mocked)
-    expect(stateDays).toBe(0);
-
-    // engine sees real history
-    expect(engineDays).toBeGreaterThan(0);
   });
 });

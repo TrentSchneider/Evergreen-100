@@ -2,39 +2,51 @@ import { describe, it, expect } from "vitest";
 
 import {
   rankAdjustment,
-  getCooldownDaysForEntry,
-  getCooldownDaysForExercise,
-  computeNextAvailableDate,
+  getBaseCooldownDaysForTissue,
+  defaultRecoveryCurves,
   isExerciseAvailableOnDate,
-  getDaysRemaining
+  getTissueEventsFromHistory,
+  computeTissueReadiness
 } from "../../src/recoveryEngine.js";
 
 // ---------------------------------------------------------
-// Local Test Config + parseLocalDate
+// Local Test Config (updated for proportional model)
 // ---------------------------------------------------------
 
 const TestRecoveryConfig = {
-  recoveryRankMax: 5,
-  recoveryTypes: {
+  recoveryRankMax: 10,
+  tissueTypes: {
     muscle: { baseDays: 0 },
     tendon: { baseDays: 1 },
     ligament: { baseDays: 2 }
+  },
+  tissues: [
+    { id: "test_muscle", type: "muscle", region: "upper" },
+    { id: "test_tendon", type: "tendon", region: "upper" },
+    { id: "test_ligament", type: "ligament", region: "upper" }
+  ],
+  exercises: {
+    push: {
+      tissues: [
+        { id: "test_tendon", rank: 3 }, // light tendon load
+        { id: "test_ligament", rank: 4 } // light ligament load
+      ]
+    }
   }
 };
 
-function parseLocalDate(str) {
-  const [y, m, d] = str.split("-").map(Number);
-  return new Date(y, m - 1, d);
-}
+// ---------------------------------------------------------
+// Tests
+// ---------------------------------------------------------
 
-describe("Recovery Engine", () => {
+describe("Recovery Engine (Proportional Model)", () => {
   // -------------------------------------------------------
-  // rankAdjustment
+  // rankAdjustment (legacy helper)
   // -------------------------------------------------------
   it("rankAdjustment clamps and subtracts 1", () => {
     expect(rankAdjustment(1, TestRecoveryConfig)).toBe(0);
     expect(rankAdjustment(3, TestRecoveryConfig)).toBe(2);
-    expect(rankAdjustment(10, TestRecoveryConfig)).toBe(4);
+    expect(rankAdjustment(10, TestRecoveryConfig)).toBe(9);
   });
 
   it("rankAdjustment returns 0 for invalid ranks", () => {
@@ -44,86 +56,171 @@ describe("Recovery Engine", () => {
   });
 
   // -------------------------------------------------------
-  // getCooldownDaysForEntry
+  // Base cooldown lookup
   // -------------------------------------------------------
-  it("getCooldownDaysForEntry computes base + rankAdjustment", () => {
+  it("returns base cooldown days from tissue id", () => {
     expect(
-      getCooldownDaysForEntry({ type: "muscle", rank: 1 }, TestRecoveryConfig)
+      getBaseCooldownDaysForTissue("test_muscle", TestRecoveryConfig)
     ).toBe(0);
     expect(
-      getCooldownDaysForEntry({ type: "tendon", rank: 2 }, TestRecoveryConfig)
+      getBaseCooldownDaysForTissue("test_tendon", TestRecoveryConfig)
+    ).toBe(1);
+    expect(
+      getBaseCooldownDaysForTissue("test_ligament", TestRecoveryConfig)
     ).toBe(2);
-    expect(
-      getCooldownDaysForEntry({ type: "ligament", rank: 5 }, TestRecoveryConfig)
-    ).toBe(6);
+    expect(getBaseCooldownDaysForTissue("missing", TestRecoveryConfig)).toBe(0);
   });
 
   // -------------------------------------------------------
-  // getCooldownDaysForExercise
+  // Curves with no events
   // -------------------------------------------------------
-  it("getCooldownDaysForExercise returns max across history entries", () => {
+  it("curve functions return full readiness without events", () => {
+    const targetDate = new Date("2026-02-21");
+
+    expect(
+      defaultRecoveryCurves.muscle(0, [], targetDate, TestRecoveryConfig)
+    ).toBe(1);
+    expect(
+      defaultRecoveryCurves.tendon(1, [], targetDate, TestRecoveryConfig)
+    ).toBe(1);
+    expect(
+      defaultRecoveryCurves.ligament(2, [], targetDate, TestRecoveryConfig)
+    ).toBe(1);
+  });
+
+  // -------------------------------------------------------
+  // Event extraction
+  // -------------------------------------------------------
+  it("extracts tissue events and sorts them oldest to newest", () => {
     const history = [
-      { exId: "push", type: "muscle", rank: 1 }, // 0
-      { exId: "push", type: "tendon", rank: 3 } // 1 + 2 = 3
+      {
+        exId: "push",
+        date: "2026-02-22",
+        tissues: [{ id: "test_tendon", rank: 2 }]
+      },
+      {
+        exId: "push",
+        date: "2026-02-20",
+        tissues: [{ id: "test_tendon", rank: 1 }]
+      },
+      {
+        exId: "pull",
+        date: "2026-02-21",
+        tissues: [{ id: "test_muscle", rank: 2 }]
+      }
     ];
 
-    expect(
-      getCooldownDaysForExercise("push", history, TestRecoveryConfig)
-    ).toBe(3);
+    const events = getTissueEventsFromHistory("test_tendon", history);
+
+    expect(events.map(e => e.date.toISOString().slice(0, 10))).toEqual([
+      "2026-02-20",
+      "2026-02-22"
+    ]);
+    expect(events.map(e => e.rank)).toEqual([1, 2]);
   });
 
-  // -------------------------------------------------------
-  // computeNextAvailableDate
-  // -------------------------------------------------------
-  it("computeNextAvailableDate returns null when no history", () => {
-    expect(
-      computeNextAvailableDate("push", "2026-02-20", [], TestRecoveryConfig)
-    ).toBe(null);
-  });
-
-  it("computeNextAvailableDate returns null when cooldown is 0", () => {
+  it("keeps highest same-day tissue rank across exercises", () => {
     const history = [
-      { exId: "push", type: "muscle", rank: 1 } // cooldown = 0
+      {
+        exId: "grip",
+        date: "2026-03-13",
+        tissues: [{ id: "test_muscle", rank: 3 }]
+      },
+      {
+        exId: "utility",
+        date: "2026-03-13",
+        tissues: [{ id: "test_muscle", rank: 5 }]
+      }
     ];
 
+    const events = getTissueEventsFromHistory("test_muscle", history);
+    expect(events).toHaveLength(1);
+    expect(events[0].rank).toBe(5);
+  });
+
+  // -------------------------------------------------------
+  // Tissue readiness (proportional model)
+  // -------------------------------------------------------
+  it("computes tissue readiness using proportional scaling", () => {
+    const history = [
+      {
+        exId: "push",
+        date: "2026-02-20",
+        tissues: [{ id: "test_tendon", rank: 10 }]
+      }
+    ];
+
+    // Tendon: baseDays = 1, rank=10/10 => scaledBase=1, total=1*1*1.75=1.75
+    // On same day → readiness = 0
     expect(
-      computeNextAvailableDate(
+      computeTissueReadiness(
+        "test_tendon",
+        "2026-02-20",
+        history,
+        TestRecoveryConfig
+      )
+    ).toBe(0);
+
+    // One day later → readiness = 1 / 1.75 ≈ 0.571...
+    expect(
+      computeTissueReadiness(
+        "test_tendon",
+        "2026-02-21",
+        history,
+        TestRecoveryConfig
+      )
+    ).toBeCloseTo(1 / 1.75, 3);
+
+    // Missing tissue → always ready
+    expect(
+      computeTissueReadiness(
+        "missing_tissue",
+        "2026-02-21",
+        [],
+        TestRecoveryConfig
+      )
+    ).toBe(1);
+  });
+
+  // -------------------------------------------------------
+  // Exercise availability
+  // -------------------------------------------------------
+  it("returns true for unknown exercise ids", () => {
+    expect(
+      isExerciseAvailableOnDate(
+        "does_not_exist",
+        "2026-02-21",
+        [],
+        TestRecoveryConfig
+      )
+    ).toBe(true);
+  });
+
+  it("blocks and then allows an exercise as tissue readiness improves", () => {
+    const history = [
+      {
+        exId: "push",
+        date: "2026-02-20",
+        tissues: [
+          { id: "test_tendon", rank: 3 }, // cooldown = 0.45 days
+          { id: "test_ligament", rank: 4 } // cooldown = 1.6 days
+        ]
+      }
+    ];
+
+    // Same day → blocked
+    expect(
+      isExerciseAvailableOnDate(
         "push",
         "2026-02-20",
         history,
         TestRecoveryConfig
       )
-    ).toBe(null);
-  });
+    ).toBe(false);
 
-  it("computeNextAvailableDate adds cooldown days", () => {
-    const history = [
-      { exId: "push", type: "tendon", rank: 3, date: "2026-02-20" }
-    ];
-
-    const next = computeNextAvailableDate(
-      "push",
-      "2026-02-20",
-      history,
-      TestRecoveryConfig
-    );
-    expect(next.toISOString().slice(0, 10)).toBe("2026-02-23");
-  });
-
-  // -------------------------------------------------------
-  // isExerciseAvailableOnDate
-  // -------------------------------------------------------
-  it("isExerciseAvailableOnDate returns true when never completed", () => {
-    expect(
-      isExerciseAvailableOnDate("push", "2026-02-22", [], TestRecoveryConfig)
-    ).toBe(true);
-  });
-
-  it("isExerciseAvailableOnDate returns false when still cooling down", () => {
-    const history = [
-      { exId: "push", type: "tendon", rank: 3 } // cooldown = 3
-    ];
-
+    // Next day (1 day later):
+    // tendon readiness = 1
+    // ligament readiness = 1 / 1.6 = 0.625 → still blocked
     expect(
       isExerciseAvailableOnDate(
         "push",
@@ -132,47 +229,47 @@ describe("Recovery Engine", () => {
         TestRecoveryConfig
       )
     ).toBe(false);
-  });
 
-  it("isExerciseAvailableOnDate returns true when cooldown passed", () => {
-    const history = [
-      { exId: "push", type: "tendon", rank: 3, date: "2026-02-20" }
-    ];
-
+    // Two days later:
+    // ligament readiness = 2 / 1.6 = 1.25 → available
     expect(
       isExerciseAvailableOnDate(
         "push",
-        "2026-02-24",
+        "2026-02-22",
         history,
         TestRecoveryConfig
       )
     ).toBe(true);
   });
 
-  // -------------------------------------------------------
-  // getDaysRemaining
-  // -------------------------------------------------------
-  it("getDaysRemaining returns 0 when no history", () => {
-    expect(getDaysRemaining("push", "2026-02-22", [], TestRecoveryConfig)).toBe(
-      0
-    );
-  });
-
-  it("getDaysRemaining returns correct positive days", () => {
+  it("becomes available exactly at cooldown threshold", () => {
     const history = [
-      { exId: "push", type: "tendon", rank: 3, date: "2026-02-20" }
+      {
+        exId: "push",
+        date: "2026-02-20",
+        tissues: [{ id: "test_tendon", rank: 10 }]
+      }
     ];
 
+    // Tendon total cooldown: 1 * (10/10) * 1.75 = 1.75 days
+    // Just before threshold (1.74 days) should still be blocked
     expect(
-      getDaysRemaining("push", "2026-02-21", history, TestRecoveryConfig)
-    ).toBe(2);
-  });
+      isExerciseAvailableOnDate(
+        "push",
+        "2026-02-21T17:45:36Z",
+        history,
+        TestRecoveryConfig
+      )
+    ).toBe(false);
 
-  it("getDaysRemaining returns 0 when cooldown passed", () => {
-    const history = [{ exId: "push", type: "tendon", rank: 3 }];
-
+    // Exactly at threshold (1.75 days) should be available
     expect(
-      getDaysRemaining("push", "2026-02-25", history, TestRecoveryConfig)
-    ).toBe(0);
+      isExerciseAvailableOnDate(
+        "push",
+        "2026-02-21T18:00:00Z",
+        history,
+        TestRecoveryConfig
+      )
+    ).toBe(true);
   });
 });

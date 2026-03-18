@@ -1,10 +1,9 @@
 // =========================================================
-// Evergreen 100 — IndexedDB Schema & Migrations (Patched)
+// Evergreen 100 — IndexedDB Schema & Migrations
 // =========================================================
 
-// These constants are safe to export — they contain no DB access.
 export const DB_NAME = "evergreen100_v2";
-export const DB_VERSION = 4;
+export const DB_VERSION = 5;
 
 export const STORE_PROGRESS = "progress";
 export const STORE_DAILY_LOGS = "daily_logs";
@@ -16,9 +15,10 @@ export const STORE_DAILY_LOGS = "daily_logs";
 // No async reads/writes allowed inside onupgradeneeded.
 export function migrateFrom(oldVersion, db, tx) {
   if (oldVersion < 1) setupV1(db);
-  if (oldVersion < 2) setupV2(db); // patched: no async seeding
+  if (oldVersion < 2) setupV2(db);
   if (oldVersion < 3) setupV3(db);
-  if (oldVersion < 4) setupV4(db, tx); // index creation only
+  if (oldVersion < 4) setupV4(db, tx);
+  if (oldVersion < 5) setupV5(db, tx);
 }
 
 // ---------------------------------------------------------
@@ -33,12 +33,8 @@ function setupV1(db) {
 // ---------------------------------------------------------
 // V2 — (Patched) No async seeding allowed in migrations
 // ---------------------------------------------------------
-// Previously this seeded exercises + settings using async store.get()
-// That deadlocks fake-indexeddb during tests.
-// Now V2 is schema-only.
 function setupV2(db) {
-  // No schema changes needed here — seeding moved to openDb()
-  // This migration is intentionally empty.
+  // No schema changes — seeding moved to openDb()
 }
 
 // ---------------------------------------------------------
@@ -54,7 +50,7 @@ function setupV3(db) {
 // V4 — Add lastCompletedDate index
 // ---------------------------------------------------------
 function setupV4(db, tx) {
-  if (!tx) return; // safety for tests
+  if (!tx) return;
 
   const store = tx.objectStore(STORE_PROGRESS);
 
@@ -63,4 +59,13 @@ function setupV4(db, tx) {
       unique: false
     });
   }
+}
+
+// ---------------------------------------------------------
+// V5 — Prepare for stressLogs in daily_logs
+// ---------------------------------------------------------
+function setupV5(db, tx) {
+  // Schema change: daily_logs entries will now have a `stressLogs` field
+  // This is a version bump for compatibility — no schema restructuring needed
+  // since IndexedDB is schema-less at the object store level.
 }

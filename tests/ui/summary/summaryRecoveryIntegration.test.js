@@ -1,19 +1,26 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { state } from "../../../src/state/state.js";
-import { EXERCISES } from "../../../src/data/config.js";
 
 vi.mock("../../../src/state/recovery.js", () => ({
   isAvailable: vi.fn()
 }));
 
-// Import after mock is set up
-import {
-  initSummaryUI,
-  recomputeAndRenderSummary
-} from "../../../src/ui/summary.js";
-import { isAvailable } from "../../../src/state/recovery.js";
+let state;
+let EXERCISES;
+let initSummaryUI;
+let recomputeAndRenderSummary;
+let isAvailable;
 
-beforeEach(() => {
+beforeEach(async () => {
+  // isolate:false means module cache is shared across files; reload modules per test
+  vi.resetModules();
+
+  ({ state } = await import("../../../src/state/state.js"));
+  ({ EXERCISES } = await import("../../../src/data/config.js"));
+  ({ initSummaryUI, recomputeAndRenderSummary } = await import(
+    "../../../src/ui/summary.js"
+  ));
+  ({ isAvailable } = await import("../../../src/state/recovery.js"));
+
   document.body.innerHTML = `
     <div id="summary-container">
       <div id="summary-pill"></div>

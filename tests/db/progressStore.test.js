@@ -7,10 +7,12 @@ import {
   loadSettings,
   saveSettings,
   snapshotDay,
-  loadHistory
+  loadHistory,
+  loadStressHistory
 } from "../../src/db/progressStore.js";
 
 import { DB_NAME } from "../../src/db/schema.js";
+import { EvergreenConfig } from "../../src/data/config.js";
 
 const { openDb, __closeDbInstance, __resetDbInstance } = openDbModule;
 
@@ -124,6 +126,75 @@ describe("progressStore", () => {
       loadHistory(logs => {
         expect(logs.length).toBe(1);
         expect(logs[0].completion).toBe(40);
+        resolve();
+      });
+    });
+  });
+
+  it("snapshotDay stores stress logs and loadStressHistory flattens them oldest first", async () => {
+    await new Promise(resolve =>
+      snapshotDay(
+        "2026-02-22",
+        { push: 10, grip: 30, utility: 0 },
+        () => 55,
+        EvergreenConfig,
+        resolve
+      )
+    );
+
+    await new Promise(resolve =>
+      snapshotDay(
+        "2026-02-21",
+        { legs: 25 },
+        () => 25,
+        EvergreenConfig,
+        resolve
+      )
+    );
+
+    await new Promise(resolve => {
+      loadHistory(logs => {
+        expect(logs).toHaveLength(2);
+        expect(logs[0].date).toBe("2026-02-22");
+        expect(logs[0].stressLogs.map(log => log.exId)).toEqual([
+          "push",
+          "grip"
+        ]);
+        expect(logs[1].stressLogs.map(log => log.exId)).toEqual(["legs"]);
+        resolve();
+      });
+    });
+
+    await new Promise(resolve => {
+      loadStressHistory(history => {
+        expect(history).toHaveLength(3);
+        expect(history[0].exId).toBe("legs");
+        expect(history[0].date).toBe("2026-02-21");
+        expect(history.slice(1).map(entry => entry.date)).toEqual([
+          "2026-02-22",
+          "2026-02-22"
+        ]);
+        expect(history.slice(1).map(entry => entry.exId)).toEqual([
+          "push",
+          "grip"
+        ]);
+        resolve();
+      });
+    });
+  });
+
+  it("loadStressHistory derives entries from legacy logs without stressLogs", async () => {
+    await new Promise(resolve =>
+      snapshotDay("2026-02-23", { grip: 45, utility: 10 }, () => 65, resolve)
+    );
+
+    await new Promise(resolve => {
+      loadStressHistory(history => {
+        expect(history.map(entry => entry.exId)).toEqual(["grip", "utility"]);
+        expect(history.map(entry => entry.date)).toEqual([
+          "2026-02-23",
+          "2026-02-23"
+        ]);
         resolve();
       });
     });

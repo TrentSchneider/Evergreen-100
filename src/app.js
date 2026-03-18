@@ -6,7 +6,7 @@ import {
   resetStreak,
   setAllExerciseValues
 } from "./state/state.js";
-import { EXERCISES, TIERS } from "./data/config.js";
+import { EXERCISES, TIERS, EvergreenConfig } from "./data/config.js";
 import { todayString } from "./utils/dates.js";
 import { computeGlobalPercent } from "./state/completion.js";
 
@@ -49,7 +49,8 @@ async function renderAll() {
       snapshotDay(
         last,
         state.values,
-        computeGlobalPercent,   // ← FIXED: correct compute function
+        computeGlobalPercent,
+        EvergreenConfig,
         async completion => {
           if (completion >= 100) {
             incrementStreak();
@@ -58,9 +59,9 @@ async function renderAll() {
           }
 
           // Reset all exercise values
-          for (const ex of EXERCISES) {
-            state.values[ex.id] = 0;
-            await saveValue(ex.id, 0, todayString);
+          for (const { id: exerciseId } of EXERCISES) {
+            state.values[exerciseId] = 0;
+            await saveValue(exerciseId, 0, todayString);
           }
 
           setLastLogDate(today);

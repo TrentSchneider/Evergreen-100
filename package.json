@@ -4,7 +4,8 @@
   "description": "Evergreen 100 habit and fitness tracker",
   "type": "module",
   "scripts": {
-    "test": "vitest",
+    "test": "vitest --run",
+    "test:verbose": "vitest --run --reporter=verbose",
     "test:watch": "vitest --watch"
   },
   "devDependencies": {

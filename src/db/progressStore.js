@@ -2,6 +2,8 @@
 // Evergreen 100 — Progress Store Operations
 // =========================================================
 
+import { EvergreenConfig } from "../data/config.js";
+
 // Lazy-load DB + schema only when needed
 async function loadDb() {
   const { openDb } = await import("./openDb.js");
@@ -116,24 +118,52 @@ export async function saveSettings(state) {
 // ---------------------------------------------------------
 // Snapshot a day's completion
 // ---------------------------------------------------------
-export async function snapshotDay(dateStr, values, computeCompletion, callback) {
+export async function snapshotDay(
+  dateStr,
+  values,
+  computeCompletion,
+  config,
+  callback
+) {
   const { openDb, STORE_DAILY_LOGS } = await loadDb();
   const db = await openDb();
   const tx = db.transaction(STORE_DAILY_LOGS, "readwrite");
   const store = tx.objectStore(STORE_DAILY_LOGS);
 
-  // Compute completion (no args uses defaults: EXERCISES and state.values)
+  // Backward compatibility: old signature was
+  // snapshotDay(dateStr, values, computeCompletion, callback)
+  const resolvedConfig =
+    typeof config === "function" || !config ? null : config;
+  const resolvedCallback =
+    typeof config === "function" ? config : callback;
+
   const completion = computeCompletion();
+
+  // Generate tissue stress logs from completed exercises
+  const stressLogs = [];
+  for (const [exerciseId, value] of Object.entries(values)) {
+    if (value > 0) {
+      const exercise = resolvedConfig?.exercises?.[exerciseId];
+      if (exercise && exercise.tissues) {
+        stressLogs.push({
+          exId: exerciseId,
+          date: dateStr,
+          tissues: exercise.tissues // Already in { id, rank } format
+        });
+      }
+    }
+  }
 
   const log = {
     date: dateStr,
     values: { ...values },
-    completion
+    completion,
+    stressLogs
   };
 
   store.put(log);
 
-  tx.oncomplete = () => callback && callback(completion);
+  tx.oncomplete = () => resolvedCallback && resolvedCallback(completion);
 }
 
 // ---------------------------------------------------------
@@ -148,7 +178,54 @@ export async function loadHistory(callback) {
   const req = store.getAll();
   req.onsuccess = () => {
     const logs = req.result || [];
+
+    // Keep existing consumer contract: latest first with completion + values.
     logs.sort((a, b) => (a.date < b.date ? 1 : -1));
+
     callback(logs);
+  };
+}
+
+// ---------------------------------------------------------
+// Load flattened stress history for recovery engine
+// ---------------------------------------------------------
+export async function loadStressHistory(callback) {
+  const { openDb, STORE_DAILY_LOGS } = await loadDb();
+  const db = await openDb();
+  const tx = db.transaction(STORE_DAILY_LOGS, "readonly");
+  const store = tx.objectStore(STORE_DAILY_LOGS);
+
+  const req = store.getAll();
+  req.onsuccess = () => {
+    const logs = req.result || [];
+
+    // Flatten stressLogs into engine format.
+    // Fallback for older logs: derive stress events from stored values.
+    const history = [];
+    for (const log of logs) {
+      if (Array.isArray(log.stressLogs) && log.stressLogs.length > 0) {
+        history.push(...log.stressLogs);
+        continue;
+      }
+
+      const values = log.values || {};
+      for (const [exerciseId, value] of Object.entries(values)) {
+        if (!(value > 0)) continue;
+
+        const exercise = EvergreenConfig.exercises?.[exerciseId];
+        if (!exercise?.tissues) continue;
+
+        history.push({
+          exId: exerciseId,
+          date: log.date,
+          tissues: exercise.tissues
+        });
+      }
+    }
+
+    // Sort by date (oldest → newest)
+    history.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    callback(history);
   };
 }
