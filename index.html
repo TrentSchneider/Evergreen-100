@@ -58,21 +58,38 @@
     <div id="tiers-container"></div>
 
     <div class="card settings-card">
-      <div class="settings-header">
+      <div
+        class="settings-header"
+        role="button"
+        tabindex="0"
+        aria-expanded="false"
+      >
         <div class="settings-title">Settings</div>
-        <div id="settings-toggle">▼</div>
+        <div id="settings-toggle" aria-hidden="true">▼</div>
       </div>
 
-      <div id="settings-body" class="settings-body hidden">
-        <!-- Theme Toggle -->
-        <div class="theme-card">
-          <div class="theme-toggle">
-            <button class="theme-option" data-theme="auto">Auto</button>
-            <button class="theme-option" data-theme="light">Light</button>
-            <button class="theme-option" data-theme="dark">Dark</button>
+      <div id="settings-body" class="settings-body" aria-hidden="true">
+        <div class="settings-body-inner">
+          <section class="setting-section">
+            <div class="setting-section-header">
+              <div class="setting-section-title">Theme</div>
+              <p class="setting-section-description">
+                Choose how Evergreen adapts its appearance.
+              </p>
+            </div>
 
-            <div id="theme-highlight" class="theme-highlight"></div>
-          </div>
+            <div class="setting-section-content">
+              <div class="theme-card">
+                <div class="theme-toggle">
+                  <button class="theme-option" data-theme="auto">Auto</button>
+                  <button class="theme-option" data-theme="light">Light</button>
+                  <button class="theme-option" data-theme="dark">Dark</button>
+
+                  <div id="theme-highlight" class="theme-highlight"></div>
+                </div>
+              </div>
+            </div>
+          </section>
         </div>
       </div>
     </div>
@@ -99,6 +116,6 @@
     <!-- =========================================================
        SCRIPT
        ========================================================= -->
-    <script src="app.js"></script>
+    <script type="module" src="./src/app.js"></script>
   </body>
 </html>
