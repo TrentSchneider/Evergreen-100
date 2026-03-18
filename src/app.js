@@ -46,7 +46,7 @@ async function renderAll() {
 
     // New day → snapshot yesterday, reset values, update streak
     else if (last !== today) {
-      snapshotDay(
+      await snapshotDay(
         last,
         state.values,
         computeGlobalPercent,

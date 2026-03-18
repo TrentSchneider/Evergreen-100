@@ -161,9 +161,25 @@ export async function snapshotDay(
     stressLogs
   };
 
-  store.put(log);
+  return new Promise((resolve, reject) => {
+    tx.onerror = () =>
+      reject(tx.error || new Error("Snapshot transaction failed"));
+    tx.onabort = () =>
+      reject(tx.error || new Error("Snapshot transaction aborted"));
 
-  tx.oncomplete = () => resolvedCallback && resolvedCallback(completion);
+    tx.oncomplete = async () => {
+      try {
+        if (resolvedCallback) {
+          await resolvedCallback(completion);
+        }
+        resolve(completion);
+      } catch (error) {
+        reject(error);
+      }
+    };
+
+    store.put(log);
+  });
 }
 
 // ---------------------------------------------------------
