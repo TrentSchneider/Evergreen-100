@@ -4,6 +4,13 @@
 // =========================================================
 
 const DEBUG_RECOVERY = false;
+const MS_PER_DAY = 1000 * 60 * 60 * 24;
+
+const RECOVERY_TYPE_MULTIPLIERS = {
+  muscle: 1,
+  tendon: 1.75,
+  ligament: 2.25
+};
 
 function debugLog(...args) {
   if (DEBUG_RECOVERY) console.log(...args);
@@ -61,69 +68,56 @@ function linearRecovery(daysSince, total) {
   return Math.min(1, Math.max(0, daysSince / total));
 }
 
+function getTypeRecoveryMultiplier(type) {
+  return RECOVERY_TYPE_MULTIPLIERS[type] || 1;
+}
+
+function getDaysSince(earlierDate, laterDate) {
+  return (laterDate - earlierDate) / MS_PER_DAY;
+}
+
+function getScaledCooldownDays(baseDays, rank, tissueType, config) {
+  const scaledRank = getScaledRank(rank, config);
+  const multiplier = getTypeRecoveryMultiplier(tissueType);
+
+  return {
+    scaledRank,
+    totalDays: baseDays * scaledRank * multiplier
+  };
+}
+
+function createLinearCurveForType(tissueType, logPrefix) {
+  return (baseDays, events, targetDate, config) => {
+    if (!events.length) return 1;
+
+    const last = events[events.length - 1];
+    const daysSince = getDaysSince(last.date, targetDate);
+    const { scaledRank, totalDays } = getScaledCooldownDays(
+      baseDays,
+      last.rank,
+      tissueType,
+      config
+    );
+    const total = Math.max(0.1, totalDays);
+
+    const readiness = linearRecovery(daysSince, total);
+
+    debugLog(logPrefix, {
+      baseDays,
+      scaledRank,
+      total,
+      daysSince,
+      readiness
+    });
+
+    return readiness;
+  };
+}
+
 export const defaultRecoveryCurves = {
-  muscle(baseDays, events, targetDate, config) {
-    if (!events.length) return 1;
-
-    const last = events[events.length - 1];
-    const daysSince = (targetDate - last.date) / (1000 * 60 * 60 * 24);
-
-    const scaledRank = getScaledRank(last.rank, config);
-    const total = Math.max(0.1, baseDays * scaledRank);
-
-    const readiness = linearRecovery(daysSince, total);
-
-    debugLog("[Recovery][Muscle]", {
-      baseDays,
-      scaledRank,
-      total,
-      daysSince,
-      readiness
-    });
-    return readiness;
-  },
-
-  tendon(baseDays, events, targetDate, config) {
-    if (!events.length) return 1;
-
-    const last = events[events.length - 1];
-    const daysSince = (targetDate - last.date) / (1000 * 60 * 60 * 24);
-
-    const scaledRank = getScaledRank(last.rank, config);
-    const total = Math.max(0.1, baseDays * scaledRank * 1.75);
-
-    const readiness = linearRecovery(daysSince, total);
-
-    debugLog("[Recovery][Tendon]", {
-      baseDays,
-      scaledRank,
-      total,
-      daysSince,
-      readiness
-    });
-    return readiness;
-  },
-
-  ligament(baseDays, events, targetDate, config) {
-    if (!events.length) return 1;
-
-    const last = events[events.length - 1];
-    const daysSince = (targetDate - last.date) / (1000 * 60 * 60 * 24);
-
-    const scaledRank = getScaledRank(last.rank, config);
-    const total = Math.max(0.1, baseDays * scaledRank * 2.25);
-
-    const readiness = linearRecovery(daysSince, total);
-
-    debugLog("[Recovery][Ligament]", {
-      baseDays,
-      scaledRank,
-      total,
-      daysSince,
-      readiness
-    });
-    return readiness;
-  }
+  muscle: createLinearCurveForType("muscle", "[Recovery][Muscle]"),
+  tendon: createLinearCurveForType("tendon", "[Recovery][Tendon]"),
+  ligament: createLinearCurveForType("ligament", "[Recovery][Ligament]")
 };
 
 // ---------------------------------------------------------
@@ -264,16 +258,16 @@ export function getDaysRemaining(
 
     const last = events[events.length - 1];
     const baseDays = getBaseCooldownDaysForTissue(tissueRef.id, config);
-
-    const scaledRank = getScaledRank(last.rank, config);
     const type = config.tissues.find(t => t.id === tissueRef.id)?.type;
 
-    let total = baseDays * scaledRank;
-    if (type === "tendon") total *= 1.75;
-    if (type === "ligament") total *= 2.25;
+    const { totalDays: total } = getScaledCooldownDays(
+      baseDays,
+      last.rank,
+      type,
+      config
+    );
 
-    const daysSince =
-      (new Date(dateString) - last.date) / (1000 * 60 * 60 * 24);
+    const daysSince = getDaysSince(last.date, new Date(dateString));
     const remaining = Math.max(0, total - daysSince);
 
     maxDays = Math.max(maxDays, remaining);
