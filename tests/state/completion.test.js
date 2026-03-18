@@ -71,22 +71,37 @@ describe("completion calculations", () => {
   });
 
   it("caps individual exercise ratios at 100% for global average", () => {
-    // Set up EXERCISES-like data with one exercise over-completed
-    state.values = {};
-    
+    state.values = Object.fromEntries(EXERCISES.map(ex => [ex.id, 0]));
+    state.values[EXERCISES[0].id] = EXERCISES[0].total * 2;
+
+    // computeCompletionPercent without arg uses EXERCISES and caps each ratio at 1
+    // so only one exercise contributes full completion to the average.
+    const avgPercent = computeCompletionPercent();
+
+    expect(avgPercent).toBeCloseTo(100 / EXERCISES.length, 5);
+  });
+
+  it("caps over-completed exercise contribution in equal-weight global percent", () => {
     const exercises = [
       { id: "a", total: 10 },
       { id: "b", total: 10 }
     ];
 
-    // First exercise is 200% complete, second is 0%
+    // A is 200%, B is 0% -> capped ratios are 1 and 0, average is 50%
     state.values = { a: 20, b: 0 };
 
-    // computeCompletionPercent without arg uses global average
-    // which should cap 'a' at 100%, so (100% + 0%) / 2 = 50%
-    const avgPercent = computeCompletionPercent();
-    
-    // The global average should reflect capped values
-    expect(avgPercent).toBeLessThanOrEqual(100);
+    expect(computeGlobalPercent(exercises, state.values)).toBe(50);
+  });
+
+  it("uses equal weighting even when totals differ", () => {
+    const exercises = [
+      { id: "a", total: 10 },
+      { id: "b", total: 30 }
+    ];
+
+    // A overshoots to 100%, B is 50% complete -> (1 + 0.5) / 2 = 75%
+    state.values = { a: 20, b: 15 };
+
+    expect(computeGlobalPercent(exercises, state.values)).toBe(75);
   });
 });

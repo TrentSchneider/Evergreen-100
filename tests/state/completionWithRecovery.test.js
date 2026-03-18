@@ -94,4 +94,18 @@ describe("completion calculations with recovery filtering", () => {
     // (10/10 + 0/10) / 2 = 50%
     expect(percent).toBe(50);
   });
+
+  it("caps over-completed available exercises when filtering", () => {
+    const available = [
+      { id: "a", total: 10 },
+      { id: "b", total: 10 }
+    ];
+
+    state.values = { a: 20, b: 0, c: 10 };
+
+    const percent = computeGlobalPercent(available, state.values);
+
+    // a contributes max 10, b contributes 0 -> 10/20 = 50%
+    expect(percent).toBe(50);
+  });
 });

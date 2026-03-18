@@ -29,13 +29,13 @@ export function computeGlobalPercent(
   exercises = EXERCISES,
   values = state.values
 ) {
-  const totalRequired = exercises.reduce((sum, ex) => sum + ex.total, 0);
-  const totalDone = exercises.reduce(
-    (sum, ex) => sum + (values[ex.id] || 0),
-    0
-  );
+  if (!exercises.length) return 0;
 
-  if (totalRequired === 0) return 0;
+  const ratios = exercises.map(ex => {
+    const value = values[ex.id] || 0;
+    return Math.min(1, value / ex.total);
+  });
 
-  return (totalDone / totalRequired) * 100;
+  const avg = ratios.reduce((sum, ratio) => sum + ratio, 0) / ratios.length;
+  return avg * 100;
 }
