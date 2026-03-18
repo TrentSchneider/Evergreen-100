@@ -202,8 +202,8 @@ describe("Recovery Engine (Proportional Model)", () => {
         exId: "push",
         date: "2026-02-20",
         tissues: [
-          { id: "test_tendon", rank: 3 }, // cooldown = 0.45 days
-          { id: "test_ligament", rank: 4 } // cooldown = 1.6 days
+          { id: "test_tendon", rank: 3 }, // cooldown = 0.525 days
+          { id: "test_ligament", rank: 4 } // cooldown = 1.8 days
         ]
       }
     ];
@@ -220,7 +220,7 @@ describe("Recovery Engine (Proportional Model)", () => {
 
     // Next day (1 day later):
     // tendon readiness = 1
-    // ligament readiness = 1 / 1.6 = 0.625 → still blocked
+    // ligament readiness = 1 / 1.8 ~= 0.556 -> still blocked
     expect(
       isExerciseAvailableOnDate(
         "push",
@@ -231,7 +231,7 @@ describe("Recovery Engine (Proportional Model)", () => {
     ).toBe(false);
 
     // Two days later:
-    // ligament readiness = 2 / 1.6 = 1.25 → available
+    // ligament readiness = 2 / 1.8 ~= 1.111 -> available
     expect(
       isExerciseAvailableOnDate(
         "push",

@@ -60,7 +60,7 @@ describe("Recovery Integration Tests (Proportional Model)", () => {
   });
 
   // ---------------------------------------------------------
-  // Tendon-only exercise (rank 3 → 0.45 day cooldown)
+  // Tendon-only exercise (rank 3 -> 0.525 day cooldown)
   // ---------------------------------------------------------
   it("tendon-only exercise is available next day", () => {
     const history = [
@@ -81,7 +81,7 @@ describe("Recovery Integration Tests (Proportional Model)", () => {
       )
     ).toBe(false);
 
-    // Next day → fully recovered (0.45 days cooldown)
+    // Next day -> fully recovered (0.525 days cooldown)
     vi.setSystemTime(new Date("2024-01-02T12:00:00Z"));
     const dayTwo = new Date().toISOString().slice(0, 10);
 
@@ -96,7 +96,7 @@ describe("Recovery Integration Tests (Proportional Model)", () => {
   });
 
   // ---------------------------------------------------------
-  // Ligament-only exercise (rank 3 → 1.2 day cooldown)
+  // Ligament-only exercise (rank 3 -> 1.35 day cooldown)
   // ---------------------------------------------------------
   it("ligament-only exercise is still blocked next day", () => {
     const history = [
@@ -107,7 +107,7 @@ describe("Recovery Integration Tests (Proportional Model)", () => {
       }
     ];
 
-    // Next day → readiness = 1 / 1.2 = 0.83 → still blocked
+    // Next day -> readiness = 1 / 1.35 ~= 0.74 -> still blocked
     vi.setSystemTime(new Date("2024-01-02T12:00:00Z"));
     const dayTwo = new Date().toISOString().slice(0, 10);
 
@@ -130,7 +130,7 @@ describe("Recovery Integration Tests (Proportional Model)", () => {
       }
     ];
 
-    // Two days later → readiness = 2 / 1.2 = 1.66 → available
+    // Two days later -> readiness = 2 / 1.35 ~= 1.48 -> available
     vi.setSystemTime(new Date("2024-01-03T12:00:00Z"));
     const dayThree = new Date().toISOString().slice(0, 10);
 
